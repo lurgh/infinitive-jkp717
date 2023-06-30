@@ -1,7 +1,7 @@
-### Updated to include zone control
+## Updated to include zone control
+**The original project https://github.com/acd/infinitive was written in GO; A laugage I've never used.  My changes to the code to add zone control, while work, could be improved someone more familiar with GOLANG.**
 
-## **DISCLAIMER**
-**The original project from '' was written in GO; A laugage I've never used.  My changes to the code to add zone control, while work, could be improved someone more familiar with GOLANG.
+<br></br>
 
 # infinitive
 Infinitive impersonates a SAM on a Carrier Infinity system management bus. 
