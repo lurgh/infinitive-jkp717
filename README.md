@@ -1,5 +1,8 @@
 ### Updated to include zone control
 
+## **DISCLAIMER**
+**The original project from '' was written in GO; A laugage I've never used.  My changes to the code to add zone control, while work, could be improved someone more familiar with GOLANG.
+
 # infinitive
 Infinitive impersonates a SAM on a Carrier Infinity system management bus. 
 
