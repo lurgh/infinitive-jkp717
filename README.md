@@ -1,3 +1,5 @@
+### Updated to include zone control
+
 # infinitive
 Infinitive impersonates a SAM on a Carrier Infinity system management bus. 
 

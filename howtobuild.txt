@@ -1,0 +1,1 @@
+env GOARCH=arm64 go build infinitive
