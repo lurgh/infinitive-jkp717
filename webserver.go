@@ -9,8 +9,8 @@ import (
 
 	"golang.org/x/net/websocket"
 
-	log "github.com/sirupsen/logrus"
 	"github.com/gin-gonic/gin"
+	log "github.com/sirupsen/logrus"
 )
 
 func handleErrors(c *gin.Context) {
@@ -48,6 +48,20 @@ func webserver(port int) {
 		}
 	})
 
+	api.GET("/zone/3/config", func(c *gin.Context) {
+		cfg, ok := getZ3Config()
+		if ok {
+			c.JSON(200, cfg)
+		}
+	})
+
+	api.GET("/zone/4/config", func(c *gin.Context) {
+		cfg, ok := getZ4Config()
+		if ok {
+			c.JSON(200, cfg)
+		}
+	})
+
 	api.GET("/zone/1/airhandler", func(c *gin.Context) {
 		ah, ok := getAirHandler()
 		if ok {
@@ -55,21 +69,7 @@ func webserver(port int) {
 		}
 	})
 
-	api.GET("/zone/2/airhandler", func(c *gin.Context) {
-		ah, ok := getAirHandler()
-		if ok {
-			c.JSON(200, ah)
-		}
-	})
-
 	api.GET("/zone/1/heatpump", func(c *gin.Context) {
-		hp, ok := getHeatPump()
-		if ok {
-			c.JSON(200, hp)
-		}
-	})
-
-	api.GET("/zone/2/heatpump", func(c *gin.Context) {
 		hp, ok := getHeatPump()
 		if ok {
 			c.JSON(200, hp)
@@ -176,6 +176,100 @@ func webserver(port int) {
 
 			if args.CoolSetpoint > 0 {
 				params.Z2CoolSetpoint = args.CoolSetpoint
+				flags |= 0x08
+			}
+
+			if flags != 0 {
+				log.Printf("calling doWrite with flags: %x", flags)
+				infinity.WriteTable(devTSTAT, params, flags)
+			}
+
+			if len(args.Mode) > 0 {
+				p := TStatCurrentParams{Mode: stringModeToRaw(args.Mode)}
+				infinity.WriteTable(devTSTAT, p, 0x10)
+			}
+		} else {
+			log.Printf("bind failed")
+		}
+	})
+
+	api.PUT("/zone/3/config", func(c *gin.Context) {
+		var args TStatZoneConfig
+
+		if c.Bind(&args) == nil {
+			params := TStatZoneParams{}
+			flags := byte(0)
+
+			if len(args.FanMode) > 0 {
+				mode, _ := stringFanModeToRaw(args.FanMode)
+				// FIXME: check for ok here
+				params.Z3FanMode = mode
+				flags |= 0x01
+			}
+
+			if args.Hold != nil {
+				if *args.Hold {
+					params.ZoneHold = 0x01
+				} else {
+					params.ZoneHold = 0x00
+				}
+				flags |= 0x02
+			}
+
+			if args.HeatSetpoint > 0 {
+				params.Z3HeatSetpoint = args.HeatSetpoint
+				flags |= 0x04
+			}
+
+			if args.CoolSetpoint > 0 {
+				params.Z3CoolSetpoint = args.CoolSetpoint
+				flags |= 0x08
+			}
+
+			if flags != 0 {
+				log.Printf("calling doWrite with flags: %x", flags)
+				infinity.WriteTable(devTSTAT, params, flags)
+			}
+
+			if len(args.Mode) > 0 {
+				p := TStatCurrentParams{Mode: stringModeToRaw(args.Mode)}
+				infinity.WriteTable(devTSTAT, p, 0x10)
+			}
+		} else {
+			log.Printf("bind failed")
+		}
+	})
+
+	api.PUT("/zone/4/config", func(c *gin.Context) {
+		var args TStatZoneConfig
+
+		if c.Bind(&args) == nil {
+			params := TStatZoneParams{}
+			flags := byte(0)
+
+			if len(args.FanMode) > 0 {
+				mode, _ := stringFanModeToRaw(args.FanMode)
+				// FIXME: check for ok here
+				params.Z4FanMode = mode
+				flags |= 0x01
+			}
+
+			if args.Hold != nil {
+				if *args.Hold {
+					params.ZoneHold = 0x01
+				} else {
+					params.ZoneHold = 0x00
+				}
+				flags |= 0x02
+			}
+
+			if args.HeatSetpoint > 0 {
+				params.Z4HeatSetpoint = args.HeatSetpoint
+				flags |= 0x04
+			}
+
+			if args.CoolSetpoint > 0 {
+				params.Z4CoolSetpoint = args.CoolSetpoint
 				flags |= 0x08
 			}
 

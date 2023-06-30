@@ -90,10 +90,70 @@ func getZ2Config() (*TStatZoneConfig, bool) {
 		OutdoorTemp:     params.OutdoorAirTemp,
 		Mode:            rawModeToString(params.Mode & 0xf),
 		Stage:           params.Mode >> 5,
-		FanMode:         rawFanModeToString(cfg.Z1FanMode),
+		FanMode:         rawFanModeToString(cfg.Z2FanMode),
 		Hold:            hold,
 		HeatSetpoint:    cfg.Z2HeatSetpoint,
 		CoolSetpoint:    cfg.Z2CoolSetpoint,
+		RawMode:         params.Mode,
+	}, true
+}
+
+func getZ3Config() (*TStatZoneConfig, bool) {
+	cfg := TStatZoneParams{}
+	ok := infinity.ReadTable(devTSTAT, &cfg)
+	if !ok {
+		return nil, false
+	}
+
+	params := TStatCurrentParams{}
+	ok = infinity.ReadTable(devTSTAT, &params)
+	if !ok {
+		return nil, false
+	}
+
+	hold := new(bool)
+	*hold = cfg.ZoneHold&0x01 == 1
+
+	return &TStatZoneConfig{
+		CurrentTemp:     params.Z3CurrentTemp,
+		CurrentHumidity: params.Z3CurrentHumidity,
+		OutdoorTemp:     params.OutdoorAirTemp,
+		Mode:            rawModeToString(params.Mode & 0xf),
+		Stage:           params.Mode >> 5,
+		FanMode:         rawFanModeToString(cfg.Z3FanMode),
+		Hold:            hold,
+		HeatSetpoint:    cfg.Z3HeatSetpoint,
+		CoolSetpoint:    cfg.Z3CoolSetpoint,
+		RawMode:         params.Mode,
+	}, true
+}
+
+func getZ4Config() (*TStatZoneConfig, bool) {
+	cfg := TStatZoneParams{}
+	ok := infinity.ReadTable(devTSTAT, &cfg)
+	if !ok {
+		return nil, false
+	}
+
+	params := TStatCurrentParams{}
+	ok = infinity.ReadTable(devTSTAT, &params)
+	if !ok {
+		return nil, false
+	}
+
+	hold := new(bool)
+	*hold = cfg.ZoneHold&0x01 == 1
+
+	return &TStatZoneConfig{
+		CurrentTemp:     params.Z4CurrentTemp,
+		CurrentHumidity: params.Z4CurrentHumidity,
+		OutdoorTemp:     params.OutdoorAirTemp,
+		Mode:            rawModeToString(params.Mode & 0xf),
+		Stage:           params.Mode >> 5,
+		FanMode:         rawFanModeToString(cfg.Z4FanMode),
+		Hold:            hold,
+		HeatSetpoint:    cfg.Z4HeatSetpoint,
+		CoolSetpoint:    cfg.Z4CoolSetpoint,
 		RawMode:         params.Mode,
 	}, true
 }
@@ -138,7 +198,7 @@ func getHeatPump() (HeatPump, bool) {
 
 func statePoller() {
 	for {
-		// Need to add case statement??
+		// Need to call for all zones??
 		c, ok := getZ1Config()
 		if ok {
 			cache.update("tstat", c)
