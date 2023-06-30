@@ -1,7 +1,7 @@
 ## Updated to include zone control
 The original project https://github.com/acd/infinitive was written in GO; A laugage I've never used.  My changes to the code to add zone control, while work, could be improved someone more familiar with GOLANG.
 
-Also, I did not update the web UI to work with multiple zones as I only use the API.
+Also, I did not update the web UI to work with multiple zones (I only wanted the API).
 
 <br></br>
 
