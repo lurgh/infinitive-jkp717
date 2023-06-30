@@ -8,7 +8,7 @@ import (
 	"os"
 	"time"
 
-	log "github.com/Sirupsen/logrus"
+	log "github.com/sirupsen/logrus"
 )
 
 type TStatZoneConfig struct {
@@ -38,7 +38,7 @@ type HeatPump struct {
 
 var infinity *InfinityProtocol
 
-func getConfig() (*TStatZoneConfig, bool) {
+func getZ1Config() (*TStatZoneConfig, bool) {
 	cfg := TStatZoneParams{}
 	ok := infinity.ReadTable(devTSTAT, &cfg)
 	if !ok {
@@ -64,6 +64,36 @@ func getConfig() (*TStatZoneConfig, bool) {
 		Hold:            hold,
 		HeatSetpoint:    cfg.Z1HeatSetpoint,
 		CoolSetpoint:    cfg.Z1CoolSetpoint,
+		RawMode:         params.Mode,
+	}, true
+}
+
+func getZ2Config() (*TStatZoneConfig, bool) {
+	cfg := TStatZoneParams{}
+	ok := infinity.ReadTable(devTSTAT, &cfg)
+	if !ok {
+		return nil, false
+	}
+
+	params := TStatCurrentParams{}
+	ok = infinity.ReadTable(devTSTAT, &params)
+	if !ok {
+		return nil, false
+	}
+
+	hold := new(bool)
+	*hold = cfg.ZoneHold&0x01 == 1
+
+	return &TStatZoneConfig{
+		CurrentTemp:     params.Z2CurrentTemp,
+		CurrentHumidity: params.Z2CurrentHumidity,
+		OutdoorTemp:     params.OutdoorAirTemp,
+		Mode:            rawModeToString(params.Mode & 0xf),
+		Stage:           params.Mode >> 5,
+		FanMode:         rawFanModeToString(cfg.Z1FanMode),
+		Hold:            hold,
+		HeatSetpoint:    cfg.Z2HeatSetpoint,
+		CoolSetpoint:    cfg.Z2CoolSetpoint,
 		RawMode:         params.Mode,
 	}, true
 }
@@ -108,7 +138,8 @@ func getHeatPump() (HeatPump, bool) {
 
 func statePoller() {
 	for {
-		c, ok := getConfig()
+		// Need to add case statement??
+		c, ok := getZ1Config()
 		if ok {
 			cache.update("tstat", c)
 		}
