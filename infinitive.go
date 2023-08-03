@@ -276,6 +276,12 @@ func statePoller() {
 		if ok {
 			cache.update("tstat", c1)
 		}
+
+		c, ok = getZ2Config()
+		if ok {
+			cache.update("tstat2", c)
+		}
+
 		time.Sleep(time.Second * 1)
 	}
 }
