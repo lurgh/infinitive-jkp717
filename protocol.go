@@ -78,7 +78,7 @@ func (p *InfinityProtocol) Open() error {
 }
 
 func (p *InfinityProtocol) handleFrame(frame *InfinityFrame) *InfinityFrame {
-	log.Printf("read frame: %s", frame)
+	// log.Printf("read frame: %s", frame)
 
 	switch frame.op {
 	case opRESPONSE:
@@ -169,7 +169,7 @@ func (p *InfinityProtocol) broker() {
 }
 
 func (p *InfinityProtocol) performAction(action *Action) {
-	log.Infof("encoded frame: %s", action.requestFrame)
+	// log.Infof("encoded frame: %s", action.requestFrame)
 	encodedFrame := action.requestFrame.encode()
 
 	p.sendFrame(encodedFrame)
@@ -218,9 +218,9 @@ func (p *InfinityProtocol) send(dst uint16, op uint8, requestData []byte, respon
 	if ok && op == opREAD && act.responseFrame != nil && act.responseFrame.data != nil && len(act.responseFrame.data) > 6 {
 		raw, ok := response.(InfinityProtocolRawRequest)
 		if ok {
-			log.Printf(">>>> handling a RawRequest")
+			// log.Printf(">>>> handling a RawRequest")
 			*raw.data = append(*raw.data, act.responseFrame.data[6:]...)
-			log.Printf("raw data length is: %d", len(*raw.data))
+			// log.Printf("raw data length is: %d", len(*raw.data))
 		} else {
 			r := bytes.NewReader(act.responseFrame.data[6:])
 			binary.Read(r, binary.BigEndian, response)
@@ -261,7 +261,7 @@ func (p *InfinityProtocol) sendFrame(buf []byte) bool {
 		return false
 	}
 
-	log.Debugf("transmitting frame: %x", buf)
+	// log.Debugf("transmitting frame: %x", buf)
 	_, err := p.port.Write(buf)
 	if err != nil {
 		log.Errorf("error writing to serial: %s", err.Error())
