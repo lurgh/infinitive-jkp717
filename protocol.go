@@ -10,11 +10,8 @@ import (
 )
 
 const (
-	devTSTAT  = uint16(0x2001)
-	devTSTAT2 = uint16(0x2201)
-	devTSTAT3 = uint16(0x2301)
-	devTSTAT4 = uint16(0x2401)
-	devSAM    = uint16(0x9201)
+	devTSTAT = uint16(0x2001)
+	devSAM   = uint16(0x9201)
 )
 
 const responseTimeout = 200
@@ -185,13 +182,13 @@ func (p *InfinityProtocol) performAction(action *Action) {
 				continue
 			}
 
-			// reqTable := action.requestFrame.data[0:3]
-			// resTable := res.data[0:3]
+			reqTable := action.requestFrame.data[0:3]
+			resTable := res.data[0:3]
 
-			//if action.requestFrame.op == opREAD && !bytes.Equal(reqTable, resTable) {
-			//	log.Printf("got response for incorrect table, is: %x expected: %x", resTable, reqTable)
-			//	continue
-			// }
+			if action.requestFrame.op == opREAD && !bytes.Equal(reqTable, resTable) {
+				log.Printf("got response for incorrect table, is: %x expected: %x", resTable, reqTable)
+				continue
+			}
 			action.responseFrame = res
 			// log.Printf("got response!")
 			action.ok = true
