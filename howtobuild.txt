@@ -1,1 +1,2 @@
-env GOARCH=arm64 go build infinitive
+Raspi 64bit: env GOARCH=arm64 go build infinitive
+Raspi 32bit: env GOARCH=arm go build infinitive

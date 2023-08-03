@@ -11,6 +11,34 @@ import (
 	log "github.com/sirupsen/logrus"
 )
 
+type TStatZone0Config struct {
+	CurrentTempZ1     uint8  `json:"currentTempZ1"`
+	CurrentHumidityZ1 uint8  `json:"currentHumidityZ1"`
+	CurrentTempZ2     uint8  `json:"currentTempZ2"`
+	CurrentHumidityZ2 uint8  `json:"currentHumidityZ2"`
+	CurrentTempZ3     uint8  `json:"currentTempZ3"`
+	CurrentHumidityZ3 uint8  `json:"currentHumidityZ3"`
+	CurrentTempZ4     uint8  `json:"currentTempZ4"`
+	CurrentHumidityZ4 uint8  `json:"currentHumidityZ4"`
+	OutdoorTemp       uint8  `json:"outdoorTemp"`
+	Mode              string `json:"mode"`
+	Stage             uint8  `json:"stage"`
+	FanModeZ1         string `json:"fanModeZ1"`
+	FanModeZ2         string `json:"fanModeZ2"`
+	FanModeZ3         string `json:"fanModeZ3"`
+	FanModeZ4         string `json:"fanModeZ4"`
+	Hold              *bool  `json:"hold"`
+	HeatSetpointZ1    uint8  `json:"heatSetpointZ1"`
+	CoolSetpointZ1    uint8  `json:"coolSetpointZ1"`
+	HeatSetpointZ2    uint8  `json:"heatSetpointZ2"`
+	CoolSetpointZ2    uint8  `json:"coolSetpointZ2"`
+	HeatSetpointZ3    uint8  `json:"heatSetpointZ3"`
+	CoolSetpointZ3    uint8  `json:"coolSetpointZ3"`
+	HeatSetpointZ4    uint8  `json:"heatSetpointZ4"`
+	CoolSetpointZ4    uint8  `json:"coolSetpointZ4"`
+	RawMode           uint8  `json:"rawMode"`
+}
+
 type TStatZoneConfig struct {
 	CurrentTemp     uint8  `json:"currentTemp"`
 	CurrentHumidity uint8  `json:"currentHumidity"`
@@ -37,6 +65,51 @@ type HeatPump struct {
 }
 
 var infinity *InfinityProtocol
+
+func getZ0Config() (*TStatZone0Config, bool) {
+	cfg := TStatZoneParams{}
+	ok := infinity.ReadTable(devTSTAT, &cfg)
+	if !ok {
+		return nil, false
+	}
+
+	params := TStatCurrentParams{}
+	ok = infinity.ReadTable(devTSTAT, &params)
+	if !ok {
+		return nil, false
+	}
+
+	hold := new(bool)
+	*hold = cfg.ZoneHold&0x01 == 1
+
+	return &TStatZone0Config{
+		CurrentTempZ1:     params.Z1CurrentTemp,
+		CurrentTempZ2:     params.Z2CurrentTemp,
+		CurrentTempZ3:     params.Z3CurrentTemp,
+		CurrentTempZ4:     params.Z4CurrentTemp,
+		CurrentHumidityZ1: params.Z1CurrentHumidity,
+		CurrentHumidityZ2: params.Z2CurrentHumidity,
+		CurrentHumidityZ3: params.Z3CurrentHumidity,
+		CurrentHumidityZ4: params.Z4CurrentHumidity,
+		OutdoorTemp:       params.OutdoorAirTemp,
+		Mode:              rawModeToString(params.Mode & 0xf),
+		Stage:             params.Mode >> 5,
+		FanModeZ1:         rawFanModeToString(cfg.Z1FanMode),
+		FanModeZ2:         rawFanModeToString(cfg.Z2FanMode),
+		FanModeZ3:         rawFanModeToString(cfg.Z3FanMode),
+		FanModeZ4:         rawFanModeToString(cfg.Z4FanMode),
+		Hold:              hold,
+		HeatSetpointZ1:    cfg.Z1HeatSetpoint,
+		CoolSetpointZ1:    cfg.Z1CoolSetpoint,
+		HeatSetpointZ2:    cfg.Z2HeatSetpoint,
+		CoolSetpointZ2:    cfg.Z2CoolSetpoint,
+		HeatSetpointZ3:    cfg.Z3HeatSetpoint,
+		CoolSetpointZ3:    cfg.Z3CoolSetpoint,
+		HeatSetpointZ4:    cfg.Z4HeatSetpoint,
+		CoolSetpointZ4:    cfg.Z4CoolSetpoint,
+		RawMode:           params.Mode,
+	}, true
+}
 
 func getZ1Config() (*TStatZoneConfig, bool) {
 	cfg := TStatZoneParams{}
