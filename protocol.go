@@ -185,13 +185,13 @@ func (p *InfinityProtocol) performAction(action *Action) {
 				continue
 			}
 
-			reqTable := action.requestFrame.data[0:3]
-			resTable := res.data[0:3]
+			// reqTable := action.requestFrame.data[0:3]
+			// resTable := res.data[0:3]
 
-			if action.requestFrame.op == opREAD && !bytes.Equal(reqTable, resTable) {
-				log.Printf("got response for incorrect table, is: %x expected: %x", resTable, reqTable)
-				continue
-			}
+			//if action.requestFrame.op == opREAD && !bytes.Equal(reqTable, resTable) {
+			//	log.Printf("got response for incorrect table, is: %x expected: %x", resTable, reqTable)
+			//	continue
+			// }
 			action.responseFrame = res
 			// log.Printf("got response!")
 			action.ok = true

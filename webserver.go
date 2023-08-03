@@ -188,12 +188,12 @@ func webserver(port int) {
 
 			if flags != 0 {
 				log.Printf("calling doWrite with flags: %x", flags)
-				infinity.WriteTable(devTSTAT, params, flags)
+				infinity.WriteTable(devTSTAT2, params, flags)
 			}
 
 			if len(args.Mode) > 0 {
 				p := TStatCurrentParams{Mode: stringModeToRaw(args.Mode)}
-				infinity.WriteTable(devTSTAT, p, 0x10)
+				infinity.WriteTable(devTSTAT2, p, 0x10)
 			}
 		} else {
 			log.Printf("bind failed")
