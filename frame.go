@@ -31,7 +31,7 @@ type InfinityFrame struct {
 
 var writeAck = &InfinityFrame{
 	src:  devSAM,
-	dst:  devTSTAT1,
+	dst:  devTSTAT,
 	op:   opRESPONSE,
 	data: []byte{0x00},
 }
