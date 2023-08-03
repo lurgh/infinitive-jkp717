@@ -85,7 +85,7 @@ func webserver(port int) {
 
 	api.GET("/zone/1/vacation", func(c *gin.Context) {
 		vac := TStatVacationParams{}
-		ok := infinity.ReadTable(devTSTAT, &vac)
+		ok := infinity.ReadTable(devTSTAT1, &vac)
 		if ok {
 			c.JSON(200, vac.toAPI())
 		}
@@ -102,7 +102,7 @@ func webserver(port int) {
 		params := TStatVacationParams{}
 		flags := params.fromAPI(&args)
 
-		infinity.WriteTable(devTSTAT, params, flags)
+		infinity.WriteTable(devTSTAT1, params, flags)
 
 	})
 
@@ -141,12 +141,12 @@ func webserver(port int) {
 
 			if flags != 0 {
 				log.Printf("calling doWrite with flags: %x", flags)
-				infinity.WriteTable(devTSTAT, params, flags)
+				infinity.WriteTable(devTSTAT1, params, flags)
 			}
 
 			if len(args.Mode) > 0 {
 				p := TStatCurrentParams{Mode: stringModeToRaw(args.Mode)}
-				infinity.WriteTable(devTSTAT, p, 0x10)
+				infinity.WriteTable(devTSTAT1, p, 0x10)
 			}
 		} else {
 			log.Printf("bind failed")
@@ -188,12 +188,12 @@ func webserver(port int) {
 
 			if flags != 0 {
 				log.Printf("calling doWrite with flags: %x", flags)
-				infinity.WriteTable(devTSTAT, params, flags)
+				infinity.WriteTable(devTSTAT2, params, flags)
 			}
 
 			if len(args.Mode) > 0 {
 				p := TStatCurrentParams{Mode: stringModeToRaw(args.Mode)}
-				infinity.WriteTable(devTSTAT, p, 0x10)
+				infinity.WriteTable(devTSTAT2, p, 0x10)
 			}
 		} else {
 			log.Printf("bind failed")
@@ -235,12 +235,12 @@ func webserver(port int) {
 
 			if flags != 0 {
 				log.Printf("calling doWrite with flags: %x", flags)
-				infinity.WriteTable(devTSTAT, params, flags)
+				infinity.WriteTable(devTSTAT3, params, flags)
 			}
 
 			if len(args.Mode) > 0 {
 				p := TStatCurrentParams{Mode: stringModeToRaw(args.Mode)}
-				infinity.WriteTable(devTSTAT, p, 0x10)
+				infinity.WriteTable(devTSTAT3, p, 0x10)
 			}
 		} else {
 			log.Printf("bind failed")
@@ -282,12 +282,12 @@ func webserver(port int) {
 
 			if flags != 0 {
 				log.Printf("calling doWrite with flags: %x", flags)
-				infinity.WriteTable(devTSTAT, params, flags)
+				infinity.WriteTable(devTSTAT4, params, flags)
 			}
 
 			if len(args.Mode) > 0 {
 				p := TStatCurrentParams{Mode: stringModeToRaw(args.Mode)}
-				infinity.WriteTable(devTSTAT, p, 0x10)
+				infinity.WriteTable(devTSTAT4, p, 0x10)
 			}
 		} else {
 			log.Printf("bind failed")

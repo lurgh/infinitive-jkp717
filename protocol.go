@@ -10,7 +10,10 @@ import (
 )
 
 const (
-	devTSTAT = uint16(0x2001)
+	devTSTAT1 = uint16(0x2001)
+	devTSTAT2 = uint16(0x2201)
+	devTSTAT3 = uint16(0x2301)
+	devTSTAT4 = uint16(0x2401)
 	devSAM   = uint16(0x9201)
 )
 
@@ -94,7 +97,7 @@ func (p *InfinityProtocol) handleFrame(frame *InfinityFrame) *InfinityFrame {
 			}
 		}
 	case opWRITE:
-		if frame.src == devTSTAT && frame.dst == devSAM {
+		if frame.src == devTSTAT1 && frame.dst == devSAM {
 			return writeAck
 		}
 	}

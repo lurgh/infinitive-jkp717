@@ -68,13 +68,13 @@ var infinity *InfinityProtocol
 
 func getZ0Config() (*TStatZone0Config, bool) {
 	cfg := TStatZoneParams{}
-	ok := infinity.ReadTable(devTSTAT, &cfg)
+	ok := infinity.ReadTable(devTSTAT1, &cfg)
 	if !ok {
 		return nil, false
 	}
 
 	params := TStatCurrentParams{}
-	ok = infinity.ReadTable(devTSTAT, &params)
+	ok = infinity.ReadTable(devTSTAT1, &params)
 	if !ok {
 		return nil, false
 	}
@@ -113,13 +113,13 @@ func getZ0Config() (*TStatZone0Config, bool) {
 
 func getZ1Config() (*TStatZoneConfig, bool) {
 	cfg := TStatZoneParams{}
-	ok := infinity.ReadTable(devTSTAT, &cfg)
+	ok := infinity.ReadTable(devTSTAT1, &cfg)
 	if !ok {
 		return nil, false
 	}
 
 	params := TStatCurrentParams{}
-	ok = infinity.ReadTable(devTSTAT, &params)
+	ok = infinity.ReadTable(devTSTAT1, &params)
 	if !ok {
 		return nil, false
 	}
@@ -143,13 +143,13 @@ func getZ1Config() (*TStatZoneConfig, bool) {
 
 func getZ2Config() (*TStatZoneConfig, bool) {
 	cfg := TStatZoneParams{}
-	ok := infinity.ReadTable(devTSTAT, &cfg)
+	ok := infinity.ReadTable(devTSTAT2, &cfg)
 	if !ok {
 		return nil, false
 	}
 
 	params := TStatCurrentParams{}
-	ok = infinity.ReadTable(devTSTAT, &params)
+	ok = infinity.ReadTable(devTSTAT2, &params)
 	if !ok {
 		return nil, false
 	}
@@ -173,13 +173,13 @@ func getZ2Config() (*TStatZoneConfig, bool) {
 
 func getZ3Config() (*TStatZoneConfig, bool) {
 	cfg := TStatZoneParams{}
-	ok := infinity.ReadTable(devTSTAT, &cfg)
+	ok := infinity.ReadTable(devTSTAT3, &cfg)
 	if !ok {
 		return nil, false
 	}
 
 	params := TStatCurrentParams{}
-	ok = infinity.ReadTable(devTSTAT, &params)
+	ok = infinity.ReadTable(devTSTAT3, &params)
 	if !ok {
 		return nil, false
 	}
@@ -203,13 +203,13 @@ func getZ3Config() (*TStatZoneConfig, bool) {
 
 func getZ4Config() (*TStatZoneConfig, bool) {
 	cfg := TStatZoneParams{}
-	ok := infinity.ReadTable(devTSTAT, &cfg)
+	ok := infinity.ReadTable(devTSTAT4, &cfg)
 	if !ok {
 		return nil, false
 	}
 
 	params := TStatCurrentParams{}
-	ok = infinity.ReadTable(devTSTAT, &params)
+	ok = infinity.ReadTable(devTSTAT4, &params)
 	if !ok {
 		return nil, false
 	}
@@ -233,7 +233,7 @@ func getZ4Config() (*TStatZoneConfig, bool) {
 
 func getTstatSettings() (*TStatSettings, bool) {
 	tss := TStatSettings{}
-	ok := infinity.ReadTable(devTSTAT, &tss)
+	ok := infinity.ReadTable(devTSTAT1, &tss)
 	if !ok {
 		return nil, false
 	}
