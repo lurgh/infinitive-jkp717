@@ -343,9 +343,9 @@ func attachListener(ws *websocket.Conn) {
 
 	Dispatcher.register <- listener
 
-	log.Printf("dumping cached data")
+	// log.Printf("dumping cached data")
 	for source, data := range cache {
-		log.Printf("dumping %s", source)
+		// log.Printf("dumping %s", source)
 		ws.Write(serializeEvent(source, data))
 	}
 

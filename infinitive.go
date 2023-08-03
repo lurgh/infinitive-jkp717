@@ -198,12 +198,11 @@ func getHeatPump() (HeatPump, bool) {
 
 func statePoller() {
 	for {
-		// Need to call for all zones??
-		c, ok := getZ1Config()
+		// called once for all zones
+		c1, ok := getZ1Config()
 		if ok {
-			cache.update("tstat", c)
+			cache.update("tstat", c1)
 		}
-
 		time.Sleep(time.Second * 1)
 	}
 }
