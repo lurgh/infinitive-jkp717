@@ -34,31 +34,38 @@ func webserver(port int) {
 		}
 	})
 
-	api.GET("/zone/1/config", func(c *gin.Context) {
-		cfg, ok := getZ1Config()
+	api.GET("/zone/0/config", func(c *gin.Context) {
+		cfgZ0, ok := getZ0Config()
 		if ok {
-			c.JSON(200, cfg)
+			c.JSON(200, cfgZ0)
+		}
+	})
+
+	api.GET("/zone/1/config", func(c *gin.Context) {
+		cfgZ1, ok := getZ1Config()
+		if ok {
+			c.JSON(200, cfgZ1)
 		}
 	})
 
 	api.GET("/zone/2/config", func(c *gin.Context) {
-		cfg, ok := getZ2Config()
+		cfgZ2, ok := getZ2Config()
 		if ok {
-			c.JSON(200, cfg)
+			c.JSON(200, cfgZ2)
 		}
 	})
 
 	api.GET("/zone/3/config", func(c *gin.Context) {
-		cfg, ok := getZ3Config()
+		cfgZ3, ok := getZ3Config()
 		if ok {
-			c.JSON(200, cfg)
+			c.JSON(200, cfgZ3)
 		}
 	})
 
 	api.GET("/zone/4/config", func(c *gin.Context) {
-		cfg, ok := getZ4Config()
+		cfgZ4, ok := getZ4Config()
 		if ok {
-			c.JSON(200, cfg)
+			c.JSON(200, cfgZ4)
 		}
 	})
 
@@ -100,14 +107,14 @@ func webserver(port int) {
 	})
 
 	api.PUT("/zone/1/config", func(c *gin.Context) {
-		var args TStatZoneConfig
+		var args TStatZone0Config
 
 		if c.Bind(&args) == nil {
 			params := TStatZoneParams{}
 			flags := byte(0)
 
-			if len(args.FanMode) > 0 {
-				mode, _ := stringFanModeToRaw(args.FanMode)
+			if len(args.FanModeZ1) > 0 {
+				mode, _ := stringFanModeToRaw(args.FanModeZ1)
 				// FIXME: check for ok here
 				params.Z1FanMode = mode
 				flags |= 0x01
@@ -122,13 +129,13 @@ func webserver(port int) {
 				flags |= 0x02
 			}
 
-			if args.HeatSetpoint > 0 {
-				params.Z1HeatSetpoint = args.HeatSetpoint
+			if args.HeatSetpointZ1 > 0 {
+				params.Z1HeatSetpoint = args.HeatSetpointZ1
 				flags |= 0x04
 			}
 
-			if args.CoolSetpoint > 0 {
-				params.Z1CoolSetpoint = args.CoolSetpoint
+			if args.CoolSetpointZ1 > 0 {
+				params.Z1CoolSetpoint = args.CoolSetpointZ1
 				flags |= 0x08
 			}
 
@@ -147,14 +154,14 @@ func webserver(port int) {
 	})
 
 	api.PUT("/zone/2/config", func(c *gin.Context) {
-		var args TStatZoneConfig
+		var args TStatZone0Config
 
 		if c.Bind(&args) == nil {
 			params := TStatZoneParams{}
 			flags := byte(0)
 
-			if len(args.FanMode) > 0 {
-				mode, _ := stringFanModeToRaw(args.FanMode)
+			if len(args.FanModeZ2) > 0 {
+				mode, _ := stringFanModeToRaw(args.FanModeZ2)
 				// FIXME: check for ok here
 				params.Z2FanMode = mode
 				flags |= 0x01
@@ -169,13 +176,13 @@ func webserver(port int) {
 				flags |= 0x02
 			}
 
-			if args.HeatSetpoint > 0 {
-				params.Z2HeatSetpoint = args.HeatSetpoint
+			if args.HeatSetpointZ2 > 0 {
+				params.Z2HeatSetpoint = args.HeatSetpointZ2
 				flags |= 0x04
 			}
 
-			if args.CoolSetpoint > 0 {
-				params.Z2CoolSetpoint = args.CoolSetpoint
+			if args.CoolSetpointZ2 > 0 {
+				params.Z2CoolSetpoint = args.CoolSetpointZ2
 				flags |= 0x08
 			}
 
@@ -194,14 +201,14 @@ func webserver(port int) {
 	})
 
 	api.PUT("/zone/3/config", func(c *gin.Context) {
-		var args TStatZoneConfig
+		var args TStatZone0Config
 
 		if c.Bind(&args) == nil {
 			params := TStatZoneParams{}
 			flags := byte(0)
 
-			if len(args.FanMode) > 0 {
-				mode, _ := stringFanModeToRaw(args.FanMode)
+			if len(args.FanModeZ3) > 0 {
+				mode, _ := stringFanModeToRaw(args.FanModeZ3)
 				// FIXME: check for ok here
 				params.Z3FanMode = mode
 				flags |= 0x01
@@ -216,13 +223,13 @@ func webserver(port int) {
 				flags |= 0x02
 			}
 
-			if args.HeatSetpoint > 0 {
-				params.Z3HeatSetpoint = args.HeatSetpoint
+			if args.HeatSetpointZ3 > 0 {
+				params.Z3HeatSetpoint = args.HeatSetpointZ3
 				flags |= 0x04
 			}
 
-			if args.CoolSetpoint > 0 {
-				params.Z3CoolSetpoint = args.CoolSetpoint
+			if args.CoolSetpointZ3 > 0 {
+				params.Z3CoolSetpoint = args.CoolSetpointZ3
 				flags |= 0x08
 			}
 
@@ -241,14 +248,14 @@ func webserver(port int) {
 	})
 
 	api.PUT("/zone/4/config", func(c *gin.Context) {
-		var args TStatZoneConfig
+		var args TStatZone0Config
 
 		if c.Bind(&args) == nil {
 			params := TStatZoneParams{}
 			flags := byte(0)
 
-			if len(args.FanMode) > 0 {
-				mode, _ := stringFanModeToRaw(args.FanMode)
+			if len(args.FanModeZ4) > 0 {
+				mode, _ := stringFanModeToRaw(args.FanModeZ4)
 				// FIXME: check for ok here
 				params.Z4FanMode = mode
 				flags |= 0x01
@@ -263,13 +270,13 @@ func webserver(port int) {
 				flags |= 0x02
 			}
 
-			if args.HeatSetpoint > 0 {
-				params.Z4HeatSetpoint = args.HeatSetpoint
+			if args.HeatSetpointZ4 > 0 {
+				params.Z4HeatSetpoint = args.HeatSetpointZ4
 				flags |= 0x04
 			}
 
-			if args.CoolSetpoint > 0 {
-				params.Z4CoolSetpoint = args.CoolSetpoint
+			if args.CoolSetpointZ4 > 0 {
+				params.Z4CoolSetpoint = args.CoolSetpointZ4
 				flags |= 0x08
 			}
 
@@ -343,9 +350,9 @@ func attachListener(ws *websocket.Conn) {
 
 	Dispatcher.register <- listener
 
-	log.Printf("dumping cached data")
+	// log.Printf("dumping cached data")
 	for source, data := range cache {
-		log.Printf("dumping %s", source)
+		// log.Printf("dumping %s", source)
 		ws.Write(serializeEvent(source, data))
 	}
 
