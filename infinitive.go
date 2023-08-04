@@ -27,7 +27,10 @@ type TStatZone0Config struct {
 	FanModeZ2         string `json:"fanModeZ2"`
 	FanModeZ3         string `json:"fanModeZ3"`
 	FanModeZ4         string `json:"fanModeZ4"`
-	Hold              *bool  `json:"hold"`
+	HoldZ1            *bool  `json:"holdZ1"`
+	HoldZ2            *bool  `json:"holdZ2"`
+	HoldZ3            *bool  `json:"holdZ3"`
+	HoldZ4            *bool  `json:"holdZ4"`
 	HeatSetpointZ1    uint8  `json:"heatSetpointZ1"`
 	CoolSetpointZ1    uint8  `json:"coolSetpointZ1"`
 	HeatSetpointZ2    uint8  `json:"heatSetpointZ2"`
@@ -36,6 +39,14 @@ type TStatZone0Config struct {
 	CoolSetpointZ3    uint8  `json:"coolSetpointZ3"`
 	HeatSetpointZ4    uint8  `json:"heatSetpointZ4"`
 	CoolSetpointZ4    uint8  `json:"coolSetpointZ4"`
+	HoldDurationZ1    string `json:"holdDurationZ1"`
+	HoldDurationZ2    string `json:"holdDurationZ2"`
+	HoldDurationZ3    string `json:"holdDurationZ3"`
+	HoldDurationZ4    string `json:"holdDurationZ4"`
+	ZoneNameZ1        string `json:"zoneNameZ1"`
+	ZoneNameZ2        string `json:"zoneNameZ2"`
+	ZoneNameZ3        string `json:"zoneNameZ3"`
+	ZoneNameZ4        string `json:"zoneNameZ4"`
 	RawMode           uint8  `json:"rawMode"`
 }
 
@@ -49,6 +60,8 @@ type TStatZoneConfig struct {
 	Hold            *bool  `json:"hold"`
 	HeatSetpoint    uint8  `json:"heatSetpoint"`
 	CoolSetpoint    uint8  `json:"coolSetpoint"`
+	HoldDuration	string `json:"holdDuration"`
+	ZoneName	string `json:"zoneName"`
 	RawMode         uint8  `json:"rawMode"`
 }
 
@@ -66,6 +79,13 @@ type HeatPump struct {
 
 var infinity *InfinityProtocol
 
+func holdTime(ht uint16) string {
+	if ht == 0 {
+		return ""
+	}
+	return fmt.Sprintf("%d:%02d", ht/60, ht % 60)
+}
+
 func getZ0Config() (*TStatZone0Config, bool) {
 	cfg := TStatZoneParams{}
 	ok := infinity.ReadTable(devTSTAT, &cfg)
@@ -79,8 +99,10 @@ func getZ0Config() (*TStatZone0Config, bool) {
 		return nil, false
 	}
 
-	hold := new(bool)
-	*hold = cfg.ZoneHold&0x01 == 1
+	holdZ1 := cfg.ZoneHold&0x01 != 0
+	holdZ2 := cfg.ZoneHold&0x02 != 0
+	holdZ3 := cfg.ZoneHold&0x04 != 0
+	holdZ4 := cfg.ZoneHold&0x08 != 0
 
 	return &TStatZone0Config{
 		CurrentTempZ1:     params.Z1CurrentTemp,
@@ -98,7 +120,10 @@ func getZ0Config() (*TStatZone0Config, bool) {
 		FanModeZ2:         rawFanModeToString(cfg.Z2FanMode),
 		FanModeZ3:         rawFanModeToString(cfg.Z3FanMode),
 		FanModeZ4:         rawFanModeToString(cfg.Z4FanMode),
-		Hold:              hold,
+		HoldZ1:            &holdZ1,
+		HoldZ2:            &holdZ2,
+		HoldZ3:            &holdZ3,
+		HoldZ4:            &holdZ4,
 		HeatSetpointZ1:    cfg.Z1HeatSetpoint,
 		CoolSetpointZ1:    cfg.Z1CoolSetpoint,
 		HeatSetpointZ2:    cfg.Z2HeatSetpoint,
@@ -107,6 +132,14 @@ func getZ0Config() (*TStatZone0Config, bool) {
 		CoolSetpointZ3:    cfg.Z3CoolSetpoint,
 		HeatSetpointZ4:    cfg.Z4HeatSetpoint,
 		CoolSetpointZ4:    cfg.Z4CoolSetpoint,
+		HoldDurationZ1:    holdTime(cfg.Z1HoldDuration),
+		HoldDurationZ2:    holdTime(cfg.Z2HoldDuration),
+		HoldDurationZ3:    holdTime(cfg.Z3HoldDuration),
+		HoldDurationZ4:    holdTime(cfg.Z4HoldDuration),
+		ZoneNameZ1:        string(cfg.Z1Name[:]),
+		ZoneNameZ2:        string(cfg.Z2Name[:]),
+		ZoneNameZ3:        string(cfg.Z3Name[:]),
+		ZoneNameZ4:        string(cfg.Z4Name[:]),
 		RawMode:           params.Mode,
 	}, true
 }
@@ -137,6 +170,8 @@ func getZ1Config() (*TStatZoneConfig, bool) {
 		Hold:            hold,
 		HeatSetpoint:    cfg.Z1HeatSetpoint,
 		CoolSetpoint:    cfg.Z1CoolSetpoint,
+		HoldDuration:    holdTime(cfg.Z1HoldDuration),
+		ZoneName:        string(cfg.Z1Name[:]),
 		RawMode:         params.Mode,
 	}, true
 }
@@ -167,6 +202,8 @@ func getZ2Config() (*TStatZoneConfig, bool) {
 		Hold:            hold,
 		HeatSetpoint:    cfg.Z2HeatSetpoint,
 		CoolSetpoint:    cfg.Z2CoolSetpoint,
+		HoldDuration:    holdTime(cfg.Z2HoldDuration),
+		ZoneName:        string(cfg.Z2Name[:]),
 		RawMode:         params.Mode,
 	}, true
 }
@@ -272,14 +309,9 @@ func getHeatPump() (HeatPump, bool) {
 func statePoller() {
 	for {
 		// called once for all zones
-		c1, ok := getZ1Config()
+		c1, ok := getZ0Config()
 		if ok {
 			cache.update("tstat", c1)
-		}
-
-		c, ok = getZ2Config()
-		if ok {
-			cache.update("tstat2", c)
 		}
 
 		time.Sleep(time.Second * 1)
@@ -323,7 +355,6 @@ func attachSnoops() {
 			}
 		}
 	})
-
 }
 
 func main() {
