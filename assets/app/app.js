@@ -43,29 +43,26 @@ app.factory('thermostatEvents', function ($websocket) {
 // Define the `PhoneListController` controller on the `phonecatApp` module
 app.controller('thermostatController', function($scope, $http, $interval, $location, thermostatEvents) {
   $scope.tstat = {};
-  $scope.tstat2 = {};
   $scope.blower = {};
+  $scope.heatpump = {};
 
   var $wsUrl = "ws://" + $location.host() + ":" + $location.port() + "/api/ws";
 
   thermostatEvents.start($wsUrl, function (msg) {
     if (msg.source == "tstat") {
        $scope.tstat = msg.data;
-    } else if (msg.source == "tstat2") {
-       $scope.tstat2 = msg.data;
     } else if (msg.source == "blower") {
        $scope.blower = msg.data;
+    } else if (msg.source == "heatpump") {
+       $scope.heatpump = msg.data;
     }
   });
 
   // $scope.events = thermostatEvents;
 
   $scope.refreshState = function () {
-     $http.get("/api/zone/1/config").then(function(response) {
+     $http.get("/api/zone/0/config").then(function(response) {
       $scope.tstat = response.data;
-    });
-     $http.get("/api/zone/2/config").then(function(response) {
-      $scope.tstat2 = response.data;
     });
   };
 
@@ -88,14 +85,14 @@ app.controller('thermostatController', function($scope, $http, $interval, $locat
   }
 
   $scope.incCoolSetpoint = function(zone,val) {
-    var temp = (zone == 1 ? $scope.tstat.coolSetpoint : $scope.tstat2.coolSetpoint) + val;
+    var temp = (zone == 1 ? $scope.tstat.coolSetpointZ1 : $scope.tstat.coolSetpointZ2) + val;
     $http.put("/api/zone/" + zone + "/config", { "coolSetpoint": temp }).then(function(response) {
       console.log("set cool setpoint zone " + zone + " to " + temp) ;
     });
   }
 
   $scope.incHeatSetpoint = function(zone,val) {
-    var temp = (zone == 1 ? $scope.tstat.heatSetpoint : $scope.tstat2.heatSetpoint) + val;
+    var temp = (zone == 1 ? $scope.tstat.heatSetpointZ1 : $scope.tstat.heatSetpointZ2) + val;
     $http.put("/api/zone/" + zone + "/config", { "heatSetpoint": temp }).then(function(response) {
       console.log("set heat setpoint zone " + zone + " to " + temp) ;
     });
