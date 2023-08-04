@@ -246,6 +246,15 @@ func (p *InfinityProtocol) WriteTable(dst uint16, table InfinityTable, flags uin
 	return p.Write(dst, addr[:], fl, table)
 }
 
+// Update a table, specifying the zone index number (0 = Zone 1, 1 = Zone 2, etc).
+func (p *InfinityProtocol) WriteTableZ(dst uint16, table InfinityTable, zflag uint8, flags uint8) bool {
+	addr := table.addr()
+	fl := []byte{zflag, 0x00, flags} // not changing it now but experiments show that 2nd and 3rd bytes
+					// of fl are actually together a 16-bit flag set, which you'd need
+					// if you wanted to update the ninth or higher field in the table
+	return p.Write(dst, addr[:], fl, table)
+}
+
 func (p *InfinityProtocol) Read(dst uint16, addr InfinityTableAddr, params interface{}) bool {
 	return p.send(dst, opREAD, addr[:], params)
 }
