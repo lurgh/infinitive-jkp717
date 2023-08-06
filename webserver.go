@@ -69,10 +69,24 @@ func webserver(port int) {
 		}
 	})
 
+	api.GET("/airhandler", func(c *gin.Context) {
+		ah, ok := getAirHandler()
+		if ok {
+			c.JSON(200, ah)
+		}
+	})
+
 	api.GET("/zone/1/airhandler", func(c *gin.Context) {
 		ah, ok := getAirHandler()
 		if ok {
 			c.JSON(200, ah)
+		}
+	})
+
+	api.GET("/heatpump", func(c *gin.Context) {
+		hp, ok := getHeatPump()
+		if ok {
+			c.JSON(200, hp)
 		}
 	})
 

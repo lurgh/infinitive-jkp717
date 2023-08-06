@@ -61,6 +61,8 @@ type TStatZoneConfig struct {
 	HeatSetpoint    uint8  `json:"heatSetpoint"`
 	CoolSetpoint    uint8  `json:"coolSetpoint"`
 	HoldDuration	string `json:"holdDuration"`
+	HoldDurationMins uint16 `json:"holdDurationMins"`
+	TargetHumidity  uint8  `json:"targetHumidity"`
 	ZoneName	string `json:"zoneName"`
 	RawMode         uint8  `json:"rawMode"`
 }
@@ -171,7 +173,9 @@ func getZ1Config() (*TStatZoneConfig, bool) {
 		HeatSetpoint:    cfg.Z1HeatSetpoint,
 		CoolSetpoint:    cfg.Z1CoolSetpoint,
 		HoldDuration:    holdTime(cfg.Z1HoldDuration),
+		HoldDurationMins: cfg.Z1HoldDuration,
 		ZoneName:        string(cfg.Z1Name[:]),
+		TargetHumidity:  cfg.Z1TargetHumidity,
 		RawMode:         params.Mode,
 	}, true
 }
