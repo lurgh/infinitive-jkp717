@@ -34,38 +34,20 @@ func webserver(port int) {
 		}
 	})
 
-	api.GET("/zone/0/config", func(c *gin.Context) {
-		cfgZ0, ok := getZ0Config()
-		if ok {
-			c.JSON(200, cfgZ0)
-		}
-	})
+	api.GET("/zone/:zn/config", func(c *gin.Context) {
+		zn, err := strconv.Atoi(c.Param("zn"))
 
-	api.GET("/zone/1/config", func(c *gin.Context) {
-		cfgZ1, ok := getZ1Config()
-		if ok {
-			c.JSON(200, cfgZ1)
-		}
-	})
-
-	api.GET("/zone/2/config", func(c *gin.Context) {
-		cfgZ2, ok := getZ2Config()
-		if ok {
-			c.JSON(200, cfgZ2)
-		}
-	})
-
-	api.GET("/zone/3/config", func(c *gin.Context) {
-		cfgZ3, ok := getZ3Config()
-		if ok {
-			c.JSON(200, cfgZ3)
-		}
-	})
-
-	api.GET("/zone/4/config", func(c *gin.Context) {
-		cfgZ4, ok := getZ4Config()
-		if ok {
-			c.JSON(200, cfgZ4)
+		if  err != nil {
+		} else if zn == 0 {
+			cfgZ0, ok := getZonesConfig()
+			if ok {
+				c.JSON(200, cfgZ0)
+			}
+		} else if zn > 0 && zn <= 8 {
+			cfgZN, ok := getZNConfig(zn - 1)
+			if ok {
+				c.JSON(200, cfgZN)
+			}
 		}
 	})
 
@@ -120,191 +102,57 @@ func webserver(port int) {
 
 	})
 
-	api.PUT("/zone/1/config", func(c *gin.Context) {
+	api.PUT("/zone/:zn/config", func(c *gin.Context) {
 		var args TStatZoneConfig
+		zn, err := strconv.Atoi(c.Param("zn"));
 
-		if c.Bind(&args) == nil {
+		if c.Bind(&args) != nil {
+			log.Printf("bind failed")
+		} else if err != nil || zn < 1 || zn > 8 {
+			log.Printf("invalid zone numner")
+		} else {
 			params := TStatZoneParams{}
 			flags := byte(0)
+			zi := zn - 1
 
 			if len(args.FanMode) > 0 {
-				mode, _ := stringFanModeToRaw(args.FanMode)
-				// FIXME: check for ok here
-				params.Z1FanMode = mode
+				mode, ok := stringFanModeToRaw(args.FanMode)
+
+				if !ok {
+					log.Printf("invalid fan mode name")
+					return
+				}
+
+				params.ZFanMode[zi] = mode
 				flags |= 0x01
 			}
 
 			if args.Hold != nil {
 				if *args.Hold {
-					params.ZoneHold = 0x01
-				} else {
-					params.ZoneHold = 0x00
+					params.ZoneHold = 0x01 << zi
 				}
 				flags |= 0x02
 			}
 
 			if args.HeatSetpoint > 0 {
-				params.Z1HeatSetpoint = args.HeatSetpoint
+				params.ZHeatSetpoint[zi] = args.HeatSetpoint
 				flags |= 0x04
 			}
 
 			if args.CoolSetpoint > 0 {
-				params.Z1CoolSetpoint = args.CoolSetpoint
+				params.ZCoolSetpoint[zi] = args.CoolSetpoint
 				flags |= 0x08
 			}
 
 			if flags != 0 {
-				log.Printf("calling doWrite with flags: %x", flags)
-				infinity.WriteTable(devTSTAT, params, flags)
+				log.Printf("calling WriteTableZ with flags: %d, 0x%x", zi, flags)
+				infinity.WriteTableZ(devTSTAT, params, uint8(zi), flags)
 			}
 
 			if len(args.Mode) > 0 {
 				p := TStatCurrentParams{Mode: stringModeToRaw(args.Mode)}
 				infinity.WriteTable(devTSTAT, p, 0x10)
 			}
-		} else {
-			log.Printf("bind failed")
-		}
-	})
-
-	api.PUT("/zone/2/config", func(c *gin.Context) {
-		var args TStatZoneConfig
-
-		if c.Bind(&args) == nil {
-			params := TStatZoneParams{}
-			flags := byte(0)
-
-			if len(args.FanMode) > 0 {
-				mode, _ := stringFanModeToRaw(args.FanMode)
-				// FIXME: check for ok here
-				params.Z2FanMode = mode
-				flags |= 0x01
-			}
-
-			if args.Hold != nil {
-				if *args.Hold {
-					params.ZoneHold = 0x02
-				} else {
-					params.ZoneHold = 0x00
-				}
-				flags |= 0x02
-			}
-
-			if args.HeatSetpoint > 0 {
-				params.Z2HeatSetpoint = args.HeatSetpoint
-				flags |= 0x04
-			}
-
-			if args.CoolSetpoint > 0 {
-				params.Z2CoolSetpoint = args.CoolSetpoint
-				flags |= 0x08
-			}
-
-			if flags != 0 {
-				log.Printf("calling WriteTableZ with flags: 1,0x%x", flags)
-				infinity.WriteTableZ(devTSTAT, params, 1, flags)
-			}
-
-			if len(args.Mode) > 0 {
-				p := TStatCurrentParams{Mode: stringModeToRaw(args.Mode)}
-				infinity.WriteTable(devTSTAT, p, 0x10)
-			}
-		} else {
-			log.Printf("bind failed")
-		}
-	})
-
-	api.PUT("/zone/3/config", func(c *gin.Context) {
-		var args TStatZoneConfig
-
-		if c.Bind(&args) == nil {
-			params := TStatZoneParams{}
-			flags := byte(0)
-
-			if len(args.FanMode) > 0 {
-				mode, _ := stringFanModeToRaw(args.FanMode)
-				// FIXME: check for ok here
-				params.Z3FanMode = mode
-				flags |= 0x01
-			}
-
-			if args.Hold != nil {
-				if *args.Hold {
-					params.ZoneHold = 0x04
-				} else {
-					params.ZoneHold = 0x00
-				}
-				flags |= 0x02
-			}
-
-			if args.HeatSetpoint > 0 {
-				params.Z3HeatSetpoint = args.HeatSetpoint
-				flags |= 0x04
-			}
-
-			if args.CoolSetpoint > 0 {
-				params.Z3CoolSetpoint = args.CoolSetpoint
-				flags |= 0x08
-			}
-
-			if flags != 0 {
-				log.Printf("calling WriteTableZ with flags: 2,0x%x", flags)
-				infinity.WriteTableZ(devTSTAT, params, 2, flags)
-			}
-
-			if len(args.Mode) > 0 {
-				p := TStatCurrentParams{Mode: stringModeToRaw(args.Mode)}
-				infinity.WriteTable(devTSTAT, p, 0x10)
-			}
-		} else {
-			log.Printf("bind failed")
-		}
-	})
-
-	api.PUT("/zone/4/config", func(c *gin.Context) {
-		var args TStatZoneConfig
-
-		if c.Bind(&args) == nil {
-			params := TStatZoneParams{}
-			flags := byte(0)
-
-			if len(args.FanMode) > 0 {
-				mode, _ := stringFanModeToRaw(args.FanMode)
-				// FIXME: check for ok here
-				params.Z4FanMode = mode
-				flags |= 0x01
-			}
-
-			if args.Hold != nil {
-				if *args.Hold {
-					params.ZoneHold = 0x08
-				} else {
-					params.ZoneHold = 0x00
-				}
-				flags |= 0x02
-			}
-
-			if args.HeatSetpoint > 0 {
-				params.Z4HeatSetpoint = args.HeatSetpoint
-				flags |= 0x04
-			}
-
-			if args.CoolSetpoint > 0 {
-				params.Z4CoolSetpoint = args.CoolSetpoint
-				flags |= 0x08
-			}
-
-			if flags != 0 {
-				log.Printf("calling WriteTableZ with flags: 3,0x%x", flags)
-				infinity.WriteTableZ(devTSTAT, params, 3, flags)
-			}
-
-			if len(args.Mode) > 0 {
-				p := TStatCurrentParams{Mode: stringModeToRaw(args.Mode)}
-				infinity.WriteTable(devTSTAT, p, 0x10)
-			}
-		} else {
-			log.Printf("bind failed")
 		}
 	})
 

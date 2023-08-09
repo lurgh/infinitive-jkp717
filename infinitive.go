@@ -11,60 +11,31 @@ import (
 	log "github.com/sirupsen/logrus"
 )
 
-type TStatZone0Config struct {
-	CurrentTempZ1     uint8  `json:"currentTempZ1"`
-	CurrentHumidityZ1 uint8  `json:"currentHumidityZ1"`
-	CurrentTempZ2     uint8  `json:"currentTempZ2"`
-	CurrentHumidityZ2 uint8  `json:"currentHumidityZ2"`
-	CurrentTempZ3     uint8  `json:"currentTempZ3"`
-	CurrentHumidityZ3 uint8  `json:"currentHumidityZ3"`
-	CurrentTempZ4     uint8  `json:"currentTempZ4"`
-	CurrentHumidityZ4 uint8  `json:"currentHumidityZ4"`
-	OutdoorTemp       uint8  `json:"outdoorTemp"`
-	Mode              string `json:"mode"`
-	Stage             uint8  `json:"stage"`
-	FanModeZ1         string `json:"fanModeZ1"`
-	FanModeZ2         string `json:"fanModeZ2"`
-	FanModeZ3         string `json:"fanModeZ3"`
-	FanModeZ4         string `json:"fanModeZ4"`
-	HoldZ1            *bool  `json:"holdZ1"`
-	HoldZ2            *bool  `json:"holdZ2"`
-	HoldZ3            *bool  `json:"holdZ3"`
-	HoldZ4            *bool  `json:"holdZ4"`
-	HeatSetpointZ1    uint8  `json:"heatSetpointZ1"`
-	CoolSetpointZ1    uint8  `json:"coolSetpointZ1"`
-	HeatSetpointZ2    uint8  `json:"heatSetpointZ2"`
-	CoolSetpointZ2    uint8  `json:"coolSetpointZ2"`
-	HeatSetpointZ3    uint8  `json:"heatSetpointZ3"`
-	CoolSetpointZ3    uint8  `json:"coolSetpointZ3"`
-	HeatSetpointZ4    uint8  `json:"heatSetpointZ4"`
-	CoolSetpointZ4    uint8  `json:"coolSetpointZ4"`
-	HoldDurationZ1    string `json:"holdDurationZ1"`
-	HoldDurationZ2    string `json:"holdDurationZ2"`
-	HoldDurationZ3    string `json:"holdDurationZ3"`
-	HoldDurationZ4    string `json:"holdDurationZ4"`
-	ZoneNameZ1        string `json:"zoneNameZ1"`
-	ZoneNameZ2        string `json:"zoneNameZ2"`
-	ZoneNameZ3        string `json:"zoneNameZ3"`
-	ZoneNameZ4        string `json:"zoneNameZ4"`
-	RawMode           uint8  `json:"rawMode"`
-}
-
 type TStatZoneConfig struct {
+	ZoneNumber      uint8  `json:"zoneNumber,omitempty"`
 	CurrentTemp     uint8  `json:"currentTemp"`
 	CurrentHumidity uint8  `json:"currentHumidity"`
-	OutdoorTemp     uint8  `json:"outdoorTemp"`
-	Mode            string `json:"mode"`
-	Stage           uint8  `json:"stage"`
+	TargetHumidity  uint8  `json:"targetHumidity"`
+	ZoneName	string `json:"zoneName"`
 	FanMode         string `json:"fanMode"`
 	Hold            *bool  `json:"hold"`
 	HeatSetpoint    uint8  `json:"heatSetpoint"`
 	CoolSetpoint    uint8  `json:"coolSetpoint"`
 	HoldDuration	string `json:"holdDuration"`
 	HoldDurationMins uint16 `json:"holdDurationMins"`
-	TargetHumidity  uint8  `json:"targetHumidity"`
-	ZoneName	string `json:"zoneName"`
+	// the following are global and should be removed from per-zone but are left in for compatibility for now
+	OutdoorTemp     uint8  `json:"outdoorTemp"`
+	Mode            string `json:"mode"`
+	Stage           uint8  `json:"stage"`
 	RawMode         uint8  `json:"rawMode"`
+}
+
+type TStatZonesConfig struct {
+	Zones             []TStatZoneConfig  `json:"zones,omitempty"`
+	OutdoorTemp       uint8  `json:"outdoorTemp"`
+	Mode              string `json:"mode"`
+	Stage             uint8  `json:"stage"`
+	RawMode           uint8  `json:"rawMode"`
 }
 
 type AirHandler struct {
@@ -88,7 +59,9 @@ func holdTime(ht uint16) string {
 	return fmt.Sprintf("%d:%02d", ht/60, ht % 60)
 }
 
-func getZ0Config() (*TStatZone0Config, bool) {
+// get config and status for all zones in one go
+// this is more efficient than getting each zone separately since all the zones' data comes in one pair of serial transactions
+func getZonesConfig() (*TStatZonesConfig, bool) {
 	cfg := TStatZoneParams{}
 	ok := infinity.ReadTable(devTSTAT, &cfg)
 	if !ok {
@@ -101,52 +74,46 @@ func getZ0Config() (*TStatZone0Config, bool) {
 		return nil, false
 	}
 
-	holdZ1 := cfg.ZoneHold&0x01 != 0
-	holdZ2 := cfg.ZoneHold&0x02 != 0
-	holdZ3 := cfg.ZoneHold&0x04 != 0
-	holdZ4 := cfg.ZoneHold&0x08 != 0
-
-	return &TStatZone0Config{
-		CurrentTempZ1:     params.Z1CurrentTemp,
-		CurrentTempZ2:     params.Z2CurrentTemp,
-		CurrentTempZ3:     params.Z3CurrentTemp,
-		CurrentTempZ4:     params.Z4CurrentTemp,
-		CurrentHumidityZ1: params.Z1CurrentHumidity,
-		CurrentHumidityZ2: params.Z2CurrentHumidity,
-		CurrentHumidityZ3: params.Z3CurrentHumidity,
-		CurrentHumidityZ4: params.Z4CurrentHumidity,
+	tstat := TStatZonesConfig{
 		OutdoorTemp:       params.OutdoorAirTemp,
 		Mode:              rawModeToString(params.Mode & 0xf),
 		Stage:             params.Mode >> 5,
-		FanModeZ1:         rawFanModeToString(cfg.Z1FanMode),
-		FanModeZ2:         rawFanModeToString(cfg.Z2FanMode),
-		FanModeZ3:         rawFanModeToString(cfg.Z3FanMode),
-		FanModeZ4:         rawFanModeToString(cfg.Z4FanMode),
-		HoldZ1:            &holdZ1,
-		HoldZ2:            &holdZ2,
-		HoldZ3:            &holdZ3,
-		HoldZ4:            &holdZ4,
-		HeatSetpointZ1:    cfg.Z1HeatSetpoint,
-		CoolSetpointZ1:    cfg.Z1CoolSetpoint,
-		HeatSetpointZ2:    cfg.Z2HeatSetpoint,
-		CoolSetpointZ2:    cfg.Z2CoolSetpoint,
-		HeatSetpointZ3:    cfg.Z3HeatSetpoint,
-		CoolSetpointZ3:    cfg.Z3CoolSetpoint,
-		HeatSetpointZ4:    cfg.Z4HeatSetpoint,
-		CoolSetpointZ4:    cfg.Z4CoolSetpoint,
-		HoldDurationZ1:    holdTime(cfg.Z1HoldDuration),
-		HoldDurationZ2:    holdTime(cfg.Z2HoldDuration),
-		HoldDurationZ3:    holdTime(cfg.Z3HoldDuration),
-		HoldDurationZ4:    holdTime(cfg.Z4HoldDuration),
-		ZoneNameZ1:        string(cfg.Z1Name[:]),
-		ZoneNameZ2:        string(cfg.Z2Name[:]),
-		ZoneNameZ3:        string(cfg.Z3Name[:]),
-		ZoneNameZ4:        string(cfg.Z4Name[:]),
 		RawMode:           params.Mode,
-	}, true
+	}
+
+	zoneArr := [8]TStatZoneConfig{}
+
+	zc := 0
+	for zi := range params.ZCurrentTemp {
+		if params.ZCurrentTemp[zi] > 0 && params.ZCurrentTemp[zi] < 255 {
+			holdz := ((cfg.ZoneHold & (0x01 << zi)) != 0)
+
+			zoneArr[zc] = TStatZoneConfig{
+					ZoneNumber:       uint8(zi+1),
+					CurrentTemp:      params.ZCurrentTemp[zi],
+					CurrentHumidity:  params.ZCurrentHumidity[zi],
+					FanMode:          rawFanModeToString(cfg.ZFanMode[zi]),
+					Hold:             &holdz,
+					HeatSetpoint:     cfg.ZHeatSetpoint[zi],
+					CoolSetpoint:     cfg.ZCoolSetpoint[zi],
+					HoldDuration:     holdTime(cfg.ZHoldDuration[zi]),
+					HoldDurationMins: cfg.ZHoldDuration[zi],
+					ZoneName:         string(cfg.ZName[zi][:]) }
+
+			zc++
+		}
+	}
+
+	tstat.Zones = zoneArr[0:zc]
+
+	return &tstat, true
 }
 
-func getZ1Config() (*TStatZoneConfig, bool) {
+func getZNConfig(zi int) (*TStatZoneConfig, bool) {
+	if (zi < 0 || zi > 7) {
+		return nil, false
+	}
+
 	cfg := TStatZoneParams{}
 	ok := infinity.ReadTable(devTSTAT, &cfg)
 	if !ok {
@@ -159,115 +126,22 @@ func getZ1Config() (*TStatZoneConfig, bool) {
 		return nil, false
 	}
 
-	hold := new(bool)
-	*hold = cfg.ZoneHold&0x01 == 1
+	hold := cfg.ZoneHold & (0x01 << zi) != 0
 
 	return &TStatZoneConfig{
-		CurrentTemp:     params.Z1CurrentTemp,
-		CurrentHumidity: params.Z1CurrentHumidity,
+		CurrentTemp:     params.ZCurrentTemp[zi],
+		CurrentHumidity: params.ZCurrentHumidity[zi],
 		OutdoorTemp:     params.OutdoorAirTemp,
 		Mode:            rawModeToString(params.Mode & 0xf),
 		Stage:           params.Mode >> 5,
-		FanMode:         rawFanModeToString(cfg.Z1FanMode),
-		Hold:            hold,
-		HeatSetpoint:    cfg.Z1HeatSetpoint,
-		CoolSetpoint:    cfg.Z1CoolSetpoint,
-		HoldDuration:    holdTime(cfg.Z1HoldDuration),
-		HoldDurationMins: cfg.Z1HoldDuration,
-		ZoneName:        string(cfg.Z1Name[:]),
-		TargetHumidity:  cfg.Z1TargetHumidity,
-		RawMode:         params.Mode,
-	}, true
-}
-
-func getZ2Config() (*TStatZoneConfig, bool) {
-	cfg := TStatZoneParams{}
-	ok := infinity.ReadTable(devTSTAT, &cfg)
-	if !ok {
-		return nil, false
-	}
-
-	params := TStatCurrentParams{}
-	ok = infinity.ReadTable(devTSTAT, &params)
-	if !ok {
-		return nil, false
-	}
-
-	hold := new(bool)
-	*hold = cfg.ZoneHold&0x01 == 1
-
-	return &TStatZoneConfig{
-		CurrentTemp:     params.Z2CurrentTemp,
-		CurrentHumidity: params.Z2CurrentHumidity,
-		OutdoorTemp:     params.OutdoorAirTemp,
-		Mode:            rawModeToString(params.Mode & 0xf),
-		Stage:           params.Mode >> 5,
-		FanMode:         rawFanModeToString(cfg.Z2FanMode),
-		Hold:            hold,
-		HeatSetpoint:    cfg.Z2HeatSetpoint,
-		CoolSetpoint:    cfg.Z2CoolSetpoint,
-		HoldDuration:    holdTime(cfg.Z2HoldDuration),
-		ZoneName:        string(cfg.Z2Name[:]),
-		RawMode:         params.Mode,
-	}, true
-}
-
-func getZ3Config() (*TStatZoneConfig, bool) {
-	cfg := TStatZoneParams{}
-	ok := infinity.ReadTable(devTSTAT, &cfg)
-	if !ok {
-		return nil, false
-	}
-
-	params := TStatCurrentParams{}
-	ok = infinity.ReadTable(devTSTAT, &params)
-	if !ok {
-		return nil, false
-	}
-
-	hold := new(bool)
-	*hold = cfg.ZoneHold&0x01 == 1
-
-	return &TStatZoneConfig{
-		CurrentTemp:     params.Z3CurrentTemp,
-		CurrentHumidity: params.Z3CurrentHumidity,
-		OutdoorTemp:     params.OutdoorAirTemp,
-		Mode:            rawModeToString(params.Mode & 0xf),
-		Stage:           params.Mode >> 5,
-		FanMode:         rawFanModeToString(cfg.Z3FanMode),
-		Hold:            hold,
-		HeatSetpoint:    cfg.Z3HeatSetpoint,
-		CoolSetpoint:    cfg.Z3CoolSetpoint,
-		RawMode:         params.Mode,
-	}, true
-}
-
-func getZ4Config() (*TStatZoneConfig, bool) {
-	cfg := TStatZoneParams{}
-	ok := infinity.ReadTable(devTSTAT, &cfg)
-	if !ok {
-		return nil, false
-	}
-
-	params := TStatCurrentParams{}
-	ok = infinity.ReadTable(devTSTAT, &params)
-	if !ok {
-		return nil, false
-	}
-
-	hold := new(bool)
-	*hold = cfg.ZoneHold&0x01 == 1
-
-	return &TStatZoneConfig{
-		CurrentTemp:     params.Z4CurrentTemp,
-		CurrentHumidity: params.Z4CurrentHumidity,
-		OutdoorTemp:     params.OutdoorAirTemp,
-		Mode:            rawModeToString(params.Mode & 0xf),
-		Stage:           params.Mode >> 5,
-		FanMode:         rawFanModeToString(cfg.Z4FanMode),
-		Hold:            hold,
-		HeatSetpoint:    cfg.Z4HeatSetpoint,
-		CoolSetpoint:    cfg.Z4CoolSetpoint,
+		FanMode:         rawFanModeToString(cfg.ZFanMode[zi]),
+		Hold:            &hold,
+		HeatSetpoint:    cfg.ZHeatSetpoint[zi],
+		CoolSetpoint:    cfg.ZCoolSetpoint[zi],
+		HoldDuration:    holdTime(cfg.ZHoldDuration[zi]),
+		HoldDurationMins: cfg.ZHoldDuration[zi],
+		ZoneName:        string(cfg.ZName[zi][:]),
+		TargetHumidity:  cfg.ZTargetHumidity[zi],
 		RawMode:         params.Mode,
 	}, true
 }
@@ -313,7 +187,7 @@ func getHeatPump() (HeatPump, bool) {
 func statePoller() {
 	for {
 		// called once for all zones
-		c1, ok := getZ0Config()
+		c1, ok := getZonesConfig()
 		if ok {
 			cache.update("tstat", c1)
 		}
@@ -359,6 +233,11 @@ func attachSnoops() {
 			}
 		}
 	})
+
+	// infinity.snoopResponse(0x6000, 0x62ff, func(frame *InfinityFrame) {
+	//	data := frame.data[:]
+	//	log.Debug("DamperMsg: ", data)
+	// })
 }
 
 func main() {
