@@ -4,7 +4,7 @@ This fork of infinitive has added read/write API and UI for multi-zone Infinity 
 been tested on a 2-zone system but it should work up to 4 or 8 zones.  The UI adapts to show the zones that appear to be in use.
 
 This code has been adapted for zoned systems from extensive previous work of others.  I (author of zoning enhancments) have not
-yet been able to test everything and have received very little feedback.  Active development and testing is still under way.
+yet been able to test everything and have received very little feedback so far.  Active development and testing is still under way.
 
 In particular we still need to look into the following:
   * Not sure whether heating mode is reflected correctly in the UI or API.  Original work supported
@@ -16,7 +16,7 @@ In particular we still need to look into the following:
   * Need to develop or adapt a Home Assistant custom component for multi-zone use.  The existing hass-infinitive componentfrom @mww012
     works but only shows the 1st zone.  Looking for ideas on this since the HA climate platform only supports one zone.
 
-This README has been updated with some more info about this forl but more needs to be written.
+This README has been updated with some info about this fork but more needs to be written.
 
 # infinitive
 Infinitive impersonates a SAM on a Carrier Infinity system management bus. 
