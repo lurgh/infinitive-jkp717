@@ -98,7 +98,7 @@ func getZonesConfig() (*TStatZonesConfig, bool) {
 					CoolSetpoint:     cfg.ZCoolSetpoint[zi],
 					HoldDuration:     holdTime(cfg.ZHoldDuration[zi]),
 					HoldDurationMins: cfg.ZHoldDuration[zi],
-					ZoneName:         string(cfg.ZName[zi][:]) }
+					ZoneName:         string(bytes.Trim(cfg.ZName[zi][:], " \000")) }
 
 			zc++
 		}
@@ -140,7 +140,7 @@ func getZNConfig(zi int) (*TStatZoneConfig, bool) {
 		CoolSetpoint:    cfg.ZCoolSetpoint[zi],
 		HoldDuration:    holdTime(cfg.ZHoldDuration[zi]),
 		HoldDurationMins: cfg.ZHoldDuration[zi],
-		ZoneName:        string(cfg.ZName[zi][:]),
+		ZoneName:        string(bytes.Trim(cfg.ZName[zi][:], " \000")),
 		TargetHumidity:  cfg.ZTargetHumidity[zi],
 		RawMode:         params.Mode,
 	}, true
