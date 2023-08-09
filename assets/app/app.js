@@ -85,14 +85,14 @@ app.controller('thermostatController', function($scope, $http, $interval, $locat
   }
 
   $scope.incCoolSetpoint = function(zone,val) {
-    var temp = (zone == 1 ? $scope.tstat.coolSetpointZ1 : $scope.tstat.coolSetpointZ2) + val;
+    var temp = $scope.tstat.zones[zone-1].coolSetpoint + val;
     $http.put("/api/zone/" + zone + "/config", { "coolSetpoint": temp }).then(function(response) {
       console.log("set cool setpoint zone " + zone + " to " + temp) ;
     });
   }
 
   $scope.incHeatSetpoint = function(zone,val) {
-    var temp = (zone == 1 ? $scope.tstat.heatSetpointZ1 : $scope.tstat.heatSetpointZ2) + val;
+    var temp = $scope.tstat.zones[zone-1].heatSetpoint + val;
     $http.put("/api/zone/" + zone + "/config", { "heatSetpoint": temp }).then(function(response) {
       console.log("set heat setpoint zone " + zone + " to " + temp) ;
     });
