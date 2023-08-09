@@ -34,15 +34,17 @@ func webserver(port int) {
 		}
 	})
 
+	api.GET("/zones/config", func(c *gin.Context) {
+		cfgZ0, ok := getZonesConfig()
+		if ok {
+			c.JSON(200, cfgZ0)
+		}
+	})
+
 	api.GET("/zone/:zn/config", func(c *gin.Context) {
 		zn, err := strconv.Atoi(c.Param("zn"))
 
 		if  err != nil {
-		} else if zn == 0 {
-			cfgZ0, ok := getZonesConfig()
-			if ok {
-				c.JSON(200, cfgZ0)
-			}
 		} else if zn > 0 && zn <= 8 {
 			cfgZN, ok := getZNConfig(zn - 1)
 			if ok {
