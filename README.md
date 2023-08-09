@@ -1,6 +1,6 @@
 # THIS FORK IS A WORK IN PROGRESS
 
-This fork of infinitive has added read/write API and UI for multi-zone Infinity systems.  It curremtl (as of 8-Aug-2023) works and has
+This fork of infinitive has added read/write API and UI for multi-zone Infinity systems.  It currently (as of 8-Aug-2023) works and has
 been tested on a 2-zone system but it should work up to 4 or 8 zones.  The UI adapts to show the zones that appear to be in use.
 
 This code has been adapted for zoned systems from extensive previous work of others.  I (author of zoning enhancments) have not
@@ -9,6 +9,8 @@ yet been able to test everything and have received very little feedback so far. 
 In particular we still need to look into the following:
   * Not sure whether heating mode is reflected correctly in the UI or API.  Original work supported
     Heat Pump but we are now testing it on a system with AC and a gas heater.
+  * Not sure how the updated UI will display the name of the one zone on a one-zone system - perhaps the zone name should be
+    suppressed in that case.
   * Will be adding reporting of automated zone damper status - mostly for fun I suppose
   * Fine-tune the detection of actual configured zones - currently using heuristic "currentTemp < 255" but hoping the acutal zone configs are hiding in there somewhere
   * Rebase to Will1604 fork or pick up backend comms changes and API enhancements
