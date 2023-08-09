@@ -1,12 +1,7 @@
-## Updated to include zone control
-The original project https://github.com/acd/infinitive was written in GO; A laugage I've never used.  My changes to the code to add zone control, while work, could be improved someone more familiar with GOLANG.
-
-Also, I did not update the web UI to work with multiple zones (I only wanted the API).
-
-<br></br>
-
 # infinitive
 Infinitive impersonates a SAM on a Carrier Infinity system management bus. 
+
+This fork implements read/write and UI for multiple-zone systems.  It is of course backward compatible to a 1-zone system.
 
 ## **DISCLAIMER**
 **The software and hardware described here interacts with a proprietary system using information gleaned by reverse engineering.  Although it works fine for me, no guarantee or warranty is provided.  Use at your own risk to your HVAC system and yourself.**
@@ -72,6 +67,13 @@ Details, and installation instructions are available here.
 
 https://github.com/elazarl/go-bindata-assetfs
 
+but can be summarized as:
+
+```
+$ go install github.com/go-bindata/go-bindata/...
+$ go install github.com/elazarl/go-bindata-assetfs/...
+```
+
 2. Rebuild bindata_assetfs.go
 
 From within the infinitive folder execute
@@ -84,7 +86,10 @@ $ go-bindata-assetfs assets/...
 
 Infinitive exposes a JSON API to retrieve and manipulate thermostat parameters.
 
-#### GET /api/zone/1/config
+#### GET /api/zone/[Z]/config
+
+Replace [Z] with any zone number 1-8.  If you want data for multiple zones, it's more efficient to use "GET /api/zones/config" to get all at once.
+
 
 ```json
 {
@@ -95,6 +100,10 @@ Infinitive exposes a JSON API to retrieve and manipulate thermostat parameters.
    "stage":2,
    "fanMode": "auto",
    "hold": true,
+   "targetHumidity": 52,
+   "zoneName": "Downstairs",
+   "holdDuration": "1:50",
+   "holdDurationMins": 110,
    "heatSetpoint": 68,
    "coolSetpoint": 74,
    "rawMode": 64
@@ -102,7 +111,14 @@ Infinitive exposes a JSON API to retrieve and manipulate thermostat parameters.
 ```
 rawMode included for debugging purposes. It encodes stage and mode. 
 
-#### PUT /api/zone/1/config
+Note that paramers stage, mode, outdoorTemp, and rawMode are global across all zones but for historical reasons they are present
+in the per-zone query.
+
+#### PUT /api/zone/[Z]/config
+
+Replace [Z] with any zone number 1-8.  One or more parameters to write should be included in the JSON body.  Parameters that are not
+mentioned are not changed.  The only parameters that are settable are "fanMode", "heatSetpoint", "coolSetpoint", and "hold", as well as the global
+parameter "mode".
 
 ```json
 {
@@ -118,7 +134,67 @@ Valid write values for `mode` are `off`, `auto`, `heat`, and `cool`.
 Additional read values for mode are `electric` and `heatpump` indicating "heat pump only" or "electric heat only" have been selected at the thermostat 
 Values for `fanMode` are `auto`, `low`, `med`, and `high`.
 
-#### GET /api/zone/1/airhandler
+#### GET /api/zones/config
+
+This retrieves and returns data for all zones at once in a single JSON structure.  It's more efficient to use this
+when you need multiple zones' data.  However, PUT is not supported with this structure currently so any PUTs must be done
+using the per-zone API.
+
+Note that this includes an array of the per-zone structures which includes the zone number in each one - that is, the zone number
+is not necessarily related directly to the index in this array.  Also note that the "global" parameters (outdoorTemp, mode, stage, rawMode)
+are properly at the top level of this
+dictionary.  These parameters may for now also be inside the per-zone structures but should not be used and will eventually be removed.
+
+```json
+{
+   "zones": [
+      {
+         "zoneNumber":1,
+	 "currentTemp":79,
+	 "currentHumidity":46,
+	 "targetHumidity":0,
+	 "zoneName":"Downstairs",
+	 "fanMode":"low",
+	 "hold":true,
+	 "heatSetpoint":72,
+	 "coolSetpoint":82,
+	 "holdDuration":"",
+	 "holdDurationMins":0,
+	 "outdoorTemp":0,
+	 "mode":"",
+	 "stage":0,
+	 "rawMode":0
+      },
+      {
+         "zoneNumber":2,
+	 "currentTemp":82,
+	 "currentHumidity":46,
+	 "targetHumidity":0,
+	 "zoneName":"Upstairs",
+	 "fanMode":"med",
+	 "hold":false,
+	 "heatSetpoint":73,
+	 "coolSetpoint":83,
+	 "holdDuration":"1:25",
+	 "holdDurationMins":85,
+	 "outdoorTemp":0,
+	 "mode":"",
+	 "stage":0,
+	 "rawMode":0
+      }
+   ],
+   "outdoorTemp":74,
+   "mode":"cool",
+   "stage":0,
+   "rawMode":1
+}
+
+```
+rawMode included for debugging purposes. It encodes stage and mode. 
+
+#### GET /api/airhandler
+
+This call is also supported as "GET /api/zone/1/airhandler" for backward compatibility but this is not per-zone data.
 
 ```json
 {
@@ -128,7 +204,9 @@ Values for `fanMode` are `auto`, `low`, `med`, and `high`.
 }
 ```
 
-#### GET /api/zone/1/heatpump
+#### GET /api/heatpump
+
+This call is also supported as "GET /api/zone/1/heatpump" for backward compatibility but this is not per-zone data.
 
 ```json
 {
@@ -182,11 +260,30 @@ Infinitive reads and writes information from the Infinity thermostat.  It also g
 #### Bryant Evolution
 I believe Infinitive should work with Bryant Evolution systems as they use the same ABCD bus.  Please let me know if you have success using Infinitive on a Bryant system.
 
+#### Notes About Multi-Zone Systems
+
+Multi-zone systems are supported in this version.  We have tested it on a 2-zone system but it should work at least up to 4 and most likely up to the
+apparent 8-zone limit of the Infinity architecture.  Please get in touch if you have success or difficulty with a zoned system.
+
+The UI will automatically show all the zones, listed in order of their index number.  The API can access a single zone's data at a tine, or all zones
+in one go; if your application wants all the zone data then it's more efficient to use the latter since the per-zone APIs will be slower owing to each
+one needing make redundant requests to the system.  The all-zones API is read-only; use the per-zone PUT method to make changes to a zone's configuration.
+
 #### Unimplemented features
 
-Multi-zone Infinity HVAC systems are not supported.  I only have a single zone setup, so I can't test if multi-zone capability works properly even if I implement it.  If you have a multi-zone setup and want to be a guinea pig, get in touch and maybe we can work something out.
-
 I don't use the thermostat's scheduling capabilities or vacation mode so Infinitive does not support them.  Reach out if this is something you'd like to see.  
+
+#### TBDs
+
+This code has been adapted for zoned systems from extensive previous work of others.  I (author of zoning enhancments) have not
+yet been able to test everything and have received very little feedback.
+
+In particular we still need to look into the following:
+  * Not sure whether heating mode is reflected correctly in the UI or API
+  * Still working on reporting automated zone damper status
+  * Fine-tune the detection of actual configured zones - currently using heuristic "currentTemp < 255" but the acutal zone configs may be encoded in there somewhere
+  * rebase to Will1604 fork or pick up backend comms changes and API enhancements
+  * more updates to README
 
 #### Issues
 ##### rPi USB stack
