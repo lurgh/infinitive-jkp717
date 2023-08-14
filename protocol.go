@@ -178,17 +178,26 @@ func (p *InfinityProtocol) performAction(action *Action) {
 	for tries := 0; tries < responseRetries; {
 		select {
 		case res := <-p.responseCh:
+			// at this point we just know it's an opRRESPONSE but could be to someone else
+			// or to us from a different thread
 			if res.src != action.requestFrame.dst {
 				continue
 			}
 
-			reqTable := action.requestFrame.data[0:3]
-			resTable := res.data[0:3]
+			// if it was a READ, the table must match; if it was a WRITE the resp len must be 1 and the resp must be 00
+			if action.requestFrame.op == opREAD {
+				reqTable := action.requestFrame.data[0:3]
+				resTable := res.data[0:3]
 
-			if action.requestFrame.op == opREAD && !bytes.Equal(reqTable, resTable) {
-				log.Printf("got response for incorrect table, is: %x expected: %x", resTable, reqTable)
-				continue
+				if !bytes.Equal(reqTable, resTable) {
+					continue
+				}
+			} else if action.requestFrame.op == opWRITE {
+				if res.dataLen != 1 || !bytes.Equal(res.data[0:1], []byte{00}) {
+					continue
+				}
 			}
+
 			action.responseFrame = res
 			// log.Printf("got response!")
 			action.ok = true
