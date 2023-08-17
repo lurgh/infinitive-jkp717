@@ -36,6 +36,20 @@ func (params TStatZoneParams) addr() InfinityTableAddr {
 	return InfinityTableAddr{0x00, 0x3B, 0x03}
 }
 
+// Damper status response from 4-zone damper controller
+// response to READ 00 03 19
+// Damper controls are 4-zone and on the first one, the first 4 zones are
+// represented with the next 4 being 0xff.  Assuming the
+// second damper controller (6101) populates the 2nd 4 zones in their
+// natural positions.
+type DamperParams struct {
+	ZDamperPosition [8]uint8
+}
+
+func (params DamperParams) addr() InfinityTableAddr {
+	return InfinityTableAddr{0x00, 0x03, 0x19}
+}
+
 type TStatVacationParams struct {
 	Active         uint8
 	Hours          uint16
