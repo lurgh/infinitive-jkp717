@@ -50,6 +50,17 @@ type HeatPump struct {
 	Stage       uint8   `json:"stage"`
 }
 
+type DamperPosition struct {
+	DamperPos   [8]uint8 `json:"damperPosition"`
+}
+
+type Logger struct {
+	f	*os.File;
+	basems int64
+}
+
+var RLogger Logger;
+
 var infinity *InfinityProtocol
 
 func holdTime(ht uint16) string {
@@ -184,6 +195,15 @@ func getHeatPump() (HeatPump, bool) {
 	return *th, true
 }
 
+func getDamperPosition() (DamperPosition, bool) {
+	h := cache.get("damperpos")
+	th, ok := h.(*DamperPosition)
+	if !ok {
+		return DamperPosition{}, false
+	}
+	return *th, true
+}
+
 func statePoller() {
 	for {
 		// called once for all zones
@@ -193,6 +213,16 @@ func statePoller() {
 		}
 
 		time.Sleep(time.Second * 1)
+	}
+}
+
+func statsPoller() {
+	for {
+		// called once for all zones
+		ss := infinity.getStatsString()
+		log.Info("#STATS# ", ss)
+
+		time.Sleep(time.Second * 15)
 	}
 }
 
@@ -234,15 +264,82 @@ func attachSnoops() {
 		}
 	})
 
-	// infinity.snoopResponse(0x6000, 0x62ff, func(frame *InfinityFrame) {
-	//	data := frame.data[:]
-	//	log.Debug("DamperMsg: ", data)
-	// })
+	// Snoop zone controllers 0x6001 and 0x6101 (up to 8 zones total)
+	infinity.snoopResponse(0x6000, 0x61ff, func(frame *InfinityFrame) {
+		// log.Debug("DamperMsg: ", data)
+		data := frame.data[3:]
+		damperPos, ok := getDamperPosition()
+		if ok {
+			if bytes.Equal(frame.data[0:3], []byte{0x00, 0x03, 0x19}) {
+				for zi := range damperPos.DamperPos {
+					if data[zi] != 0xff {
+						damperPos.DamperPos[zi] = uint8(data[zi])
+					}
+				}
+				log.Debug("zone damper positions: ", damperPos.DamperPos)
+				cache.update("damperpos", &damperPos)
+			}
+		}
+	})
+}
+
+
+func (l *Logger) Open() (ok bool) {
+	var err error
+
+	ok = true
+
+	l.f, err = os.OpenFile("resplog", os.O_WRONLY|os.O_APPEND|os.O_CREATE, 0755)
+	if err != nil {
+		log.Errorf("Failed to open resp log file '%s': %s", "resplog", err)
+		ok = false
+	} else {
+		log.Debugf("Opened resp log file 'resplog'")
+	}
+	l.basems = time.Now().UnixMilli()
+	return
+}
+
+func (l *Logger) Close() {
+	if l.f != nil {
+		err := l.f.Close()
+		if (err != nil) {
+			log.Warnf("Error onm closing resp logger: %", err)
+		} else {
+			l.f = nil
+		}
+	}
+}
+
+func (l *Logger) Log(frame *InfinityFrame) {
+	msd := time.Now().UnixMilli() - l.basems
+	if l.f != nil {
+		l.f.WriteString(fmt.Sprintf("%08d ", msd))
+		_, err := l.f.WriteString(frame.String())
+		if err != nil { log.Error("Logger WriteString failed: ", err) }
+		l.f.WriteString("\n")
+		err = l.f.Sync()
+		if err != nil { log.Error("Logger Sync failed: ", err) }
+	}
+}
+
+func (l *Logger) LogS(s string) {
+	msd := time.Now().UnixMilli() - l.basems
+	if l.f != nil {
+		l.f.WriteString(fmt.Sprintf("%08d ", msd))
+		_, err := l.f.WriteString(s)
+		if err != nil { log.Error("s.Logger WriteString failed: ", err) }
+		l.f.WriteString("\n")
+		err = l.f.Sync()
+		if err != nil { log.Error("s.Logger Sync failed: ", err) }
+	}
 }
 
 func main() {
 	httpPort := flag.Int("httpport", 8080, "HTTP port to listen on")
 	serialPort := flag.String("serial", "", "path to serial port")
+	doRespLog := flag.Bool("rlog", false, "enable resp log")
+	doDebugLog := flag.Bool("debug", false, "enable debug log level")
 
 	flag.Parse()
 
@@ -252,13 +349,24 @@ func main() {
 		os.Exit(1)
 	}
 
-	log.SetLevel(log.DebugLevel)
+	loglevel := log.InfoLevel
+	if doDebugLog != nil && *doDebugLog { loglevel = log.DebugLevel }
+	log.SetLevel(loglevel)
+
+	if doRespLog != nil && *doRespLog {
+		if !RLogger.Open() {
+			panic("unable to open resp log file")
+		}
+		defer RLogger.Close()
+	}
 
 	infinity = &InfinityProtocol{device: *serialPort}
 	airHandler := new(AirHandler)
 	heatPump := new(HeatPump)
+	damperPos := new(DamperPosition)
 	cache.update("blower", airHandler)
 	cache.update("heatpump", heatPump)
+	cache.update("damperpos", damperPos)
 	attachSnoops()
 	err := infinity.Open()
 	if err != nil {
@@ -266,5 +374,6 @@ func main() {
 	}
 
 	go statePoller()
+	go statsPoller()
 	webserver(*httpPort)
 }
