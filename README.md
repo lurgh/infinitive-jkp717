@@ -70,7 +70,7 @@ INFO[0000] read frame: 4001 -> 2001: RESPONSE 0003160000000003ba004a2f780100037a
 
 Browse to your host system's IP, with the port you provided on the command line, and you should see a page that looks similar to the following:
 
-<img src="https://raw.githubusercontent.com/acd/infinitive/master/screenshot.png"/>
+<img src="https://raw.githubusercontent.com/lurgh/infinitive/master/screenshot.png"/>
 
 **Note:** I am not much of a frontend web developer.  I'd love to see pull requests for enhancements to the web interface.
 
