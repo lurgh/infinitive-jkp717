@@ -8,15 +8,18 @@ yet been able to test everything and have received very little feedback so far. 
 
 In particular we still need to look into the following:
   * Not sure whether heating mode is reflected correctly in the UI or API.  Original work supported
-    Heat Pump but we are now testing it on a system with AC and a gas heater.
+    Heat Pump but we are now testing it on a system with AC and a gas heater.  Should have plenty of data in a
+    few months.
   * Not sure how the updated UI will display the name of the one zone on a one-zone system - perhaps the zone name should be
-    suppressed in that case.
+    suppressed in that case if it is not commonly set up in a non-zone controller.
+  * For bonus points, trying to figure out how Dehumidify mode is represented so we can reflect it in th UI/API
   * Will be adding reporting of automated zone damper status - mostly for fun I suppose
   * Fine-tune the detection of actual configured zones - currently using heuristic "currentTemp < 255" but hoping the acutal zone configs are hiding in there somewhere
   * Rebase to Will1604 fork or pick up backend comms changes and API enhancements
   * more updates to README
-  * Need to develop or adapt a Home Assistant custom component for multi-zone use.  The existing hass-infinitive componentfrom @mww012
-    works but only shows the 1st zone.  Looking for ideas on this since the HA climate platform only supports one zone.
+  * Working on a Home Assistant custom component for multi-zone use and which leverages the ws API used by the UI for faster
+    (push) updates and less load on the serial bus.  The existing hass-infinitive component from @mww012
+    works but only shows the 1st zone - I currently have a hacked-up version that supports multiple zones via inefficient polling.
 
 This README has been updated with some info about this fork but more needs to be written.
 
@@ -293,7 +296,7 @@ one needing make redundant requests to the system.  The all-zones API is read-on
 
 #### Unimplemented features
 
-I don't use the thermostat's scheduling capabilities or vacation mode so Infinitive does not support them.  Reach out if this is something you'd like to see.  
+I don't use the thermostat's scheduling capabilities or vacation mode so Infinitive does not support them.  The schema and encoding of the scheduling data are fairly obvious so API support could be added if there is interest.  Reach out if this is something you'd like to see.  
 
 #### Issues
 ##### rPi USB stack
@@ -303,8 +306,8 @@ The USB to RS-485 adapter I'm using periodically locks up due to what appear to 
 ```
 Infinitive reopens the serial interface when it hasn't received any data in 5 seconds to workaround the issue.  Alternatively, forcing the Pi USB stack to USB 1.1 mode resolves the issue.  If you want to go this route, add `dwc_otg.speed=1` to `/boot/config.txt` and reboot the Pi.
 
-##### Bogus data
-Occasionally Infinitive will display incorrect data via the web interface for a second.  This is likely caused by improper parsing of data received from the ABCD bus.  I'd like to track down the root cause of this issue and resolve it, but due to its transient nature it's not a high priority and does not affect usability.
+##### Bogus data (fixed)
+There was a long-standing problem wherein occasionally Infinitive's UI would display incorrect data via the web interface for a second.  This was due to a bug in the go code and has been fixed in this fork.  Leaving this note so others familiar with the README will see it.
 
 #### See Also
 [Infinitude](https://github.com/nebulous/infinitude) is another solution for managing Carrier HVAC systems.  It impersonates Carrier web services and provides an alternate interface for controlling Carrier Internet-enabled touchscreen thermostats.  It also supports passive snooping of the RS-485 bus and can decode and display some of the data.
