@@ -15,7 +15,7 @@ const (
 	devSAM   = uint16(0x9201)
 )
 
-const responseTimeout = 2000
+const responseTimeout = 500
 const responseRetries = 5
 
 type snoopCallback func(*InfinityFrame)
@@ -107,6 +107,7 @@ func (p *InfinityProtocol) Open() error {
 
 func (p *InfinityProtocol) handleFrame(frame *InfinityFrame) *InfinityFrame {
 	// log.Printf("read frame: %s", frame)
+	RLogger.Log(frame)
 
 	switch frame.op {
 	case opRESPONSE:
