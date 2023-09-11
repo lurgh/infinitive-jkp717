@@ -311,28 +311,28 @@ When enabled by providing the MQTT broker URI and optional password, the followi
 ### Topics Published
 
 System-global topics:
-`infinitive/outdoorTemp`: Outside temp as reported by thermostat, whole number degrees
-`infinitive/mode`: System main mode normalized for Home Assistant, currently one of: `off`, `cool`, `heat`, `auto`
-`infinitive/action`: Current action, Home Assistant compatible, currently one of: `off`, `heating`, `cooling`, `idle`
-`infinitive/rawMode`: numeric representation of mode and action, a uint8 value - useful to developers for discovery
+* `infinitive/outdoorTemp`: Outside temp as reported by thermostat, whole number degrees
+* `infinitive/mode`: System main mode normalized for Home Assistant, currently one of: `off`, `cool`, `heat`, `auto`
+* `infinitive/action`: Current action, Home Assistant compatible, currently one of: `off`, `heating`, `cooling`, `idle`
+* `infinitive/rawMode`: numeric representation of mode and action, a uint8 value - useful to developers for discovery
 
 Experimental, may change or disappear over time:
-`infinitive/coilTemp`: coil temp reported by outdoor unit, in 0.125-degree resolution
-`infinitive/outsideTemp`: outside temp reported by outdoor unit, in 0.125-degree resolution
-`infinitive/acStage`: compressor operating stage reported by outdoor unit, as a number 0/1/2
-`infinitive/blowerRPM`: blower speed reported by inside unit, in RPM, 0 when off
-`infinitive/airflowCFM`: airflow speed reported by inside unit, in cf/m, 0 when off
+* `infinitive/coilTemp`: coil temp reported by outdoor unit, in 0.125-degree resolution
+* `infinitive/outsideTemp`: outside temp reported by outdoor unit, in 0.125-degree resolution
+* `infinitive/acStage`: compressor operating stage reported by outdoor unit, as a number 0/1/2
+* `infinitive/blowerRPM`: blower speed reported by inside unit, in RPM, 0 when off
+* `infinitive/airflowCFM`: airflow speed reported by inside unit, in cf/m, 0 when off
 
 Reported per zone, where X is a zone number 1-8:
-`infinitive/zone/X/currentTemp`: current temperature as reported by thermostat, in whole degrees
-`infinitive/zone/X/humidity`: current temperature as reported by thermostat, in percent RH
-`infinitive/zone/X/coolSetpoint`: current cool set point, in whole degrees
-`infinitive/zone/X/heatSetpoint`: current heat set point, in whole degrees
-`infinitive/zone/X/fanMode`: current fan mode setting, Home Assistant compatible: `low`, `med`, `high`, `auto`
-`infinitive/zone/X/hold`: bool flag for Hold setting, `false` or `true` (not really HA compatible, will be reworked)
+* `infinitive/zone/X/currentTemp`: current temperature as reported by thermostat, in whole degrees
+* `infinitive/zone/X/humidity`: current temperature as reported by thermostat, in percent RH
+* `infinitive/zone/X/coolSetpoint`: current cool set point, in whole degrees
+* `infinitive/zone/X/heatSetpoint`: current heat set point, in whole degrees
+* `infinitive/zone/X/fanMode`: current fan mode setting, Home Assistant compatible: `low`, `med`, `high`, `auto`
+* `infinitive/zone/X/hold`: bool flag for Hold setting, `false` or `true` (not really HA compatible, will be reworked)
 
 Experimental:
-`infinitive/zone/X/damperPos`: zone damper position reported by zoning unit, 0-100 as whole number percent where 100 is fully open
+* `infinitive/zone/X/damperPos`: zone damper position reported by zoning unit, 0-100 as whole number percent where 100 is fully open
 
 ### Topics Subscribed
 
@@ -342,13 +342,13 @@ parameter to reflect the change.  Logs will indicate if there are errors in proc
 1 second, due to the thermostat polling interval.
 
 Global topics:
-`infinitive/mode/set`: Set the main operating mode (same options as above)
+* `infinitive/mode/set`: Set the main operating mode (same options as above)
 
 Zone topics:
-`infinitive/zone/X/coolSetpoint/set`: set the cool set point, as above
-`infinitive/zone/X/heatSetpoint/set`: set the heat set point, as above
-`infinitive/zone/X/fanMode/set`: set the fan mode setting, same options as above
-`infinitive/zone/X/hold/set`: set the zone hold setting, same options as above
+* `infinitive/zone/X/coolSetpoint/set`: set the cool set point, as above
+* `infinitive/zone/X/heatSetpoint/set`: set the heat set point, as above
+* `infinitive/zone/X/fanMode/set`: set the fan mode setting, same options as above
+* `infinitive/zone/X/hold/set`: set the zone hold setting, same options as above
 
 ## Details
 #### ABCD bus
