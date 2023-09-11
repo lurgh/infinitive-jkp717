@@ -6,6 +6,7 @@ import (
 	"flag"
 	"fmt"
 	"os"
+	"strconv"
 	"time"
 
 	log "github.com/sirupsen/logrus"
@@ -27,6 +28,7 @@ type TStatZoneConfig struct {
 	OutdoorTemp     uint8  `json:"outdoorTemp"`
 	Mode            string `json:"mode"`
 	Stage           uint8  `json:"stage"`
+	Action          string `json:"action"`
 	RawMode         uint8  `json:"rawMode"`
 }
 
@@ -35,6 +37,7 @@ type TStatZonesConfig struct {
 	OutdoorTemp       uint8  `json:"outdoorTemp"`
 	Mode              string `json:"mode"`
 	Stage             uint8  `json:"stage"`
+	Action            string `json:"action"`
 	RawMode           uint8  `json:"rawMode"`
 }
 
@@ -89,6 +92,7 @@ func getZonesConfig() (*TStatZonesConfig, bool) {
 		OutdoorTemp:       params.OutdoorAirTemp,
 		Mode:              rawModeToString(params.Mode & 0xf),
 		Stage:             params.Mode >> 5,
+		Action:            rawActionToString(params.Mode >> 5),
 		RawMode:           params.Mode,
 	}
 
@@ -120,6 +124,95 @@ func getZonesConfig() (*TStatZonesConfig, bool) {
 	return &tstat, true
 }
 
+
+// write a change to a single parameter of a single zone or global config
+// zn == 0 for global params or 1-8 for zone params
+// returns ok == true
+func putConfig(zone string, param string, value string) bool {
+	params := TStatZoneParams{}
+	flags := byte(0)
+
+	zn, err := strconv.Atoi(zone)
+	if err != nil {
+		log.Errorf("putConfig: invalid zone value '%s'", zone)
+		return false
+	}
+	zi := zn - 1
+
+	// zone parameters
+	if (zn >= 1 && zn <= 8) {
+		switch param {
+		case "fanMode":
+			if mode, ok := stringFanModeToRaw(value); !ok {
+				log.Errorf("putConfig: invalid fan mode name '%s' for zone %d", value, zn)
+				return false
+			} else {
+				params.ZFanMode[zi] = mode
+				flags |= 0x01
+			}
+		case "coolSetpoint":
+			if val, err := strconv.ParseUint(value, 10, 8); err != nil {
+				log.Errorf("putConfig: invalid cool setpoint value '%s' for zone %d", value, zn)
+				return false
+			} else {
+				params.ZCoolSetpoint[zi] = uint8(val)
+				flags |= 0x08
+			}
+		case "heatSetpoint":
+			if val, err := strconv.ParseUint(value, 10, 8); err != nil {
+				log.Errorf("putConfig: invalid heat setpoint value '%s' for zone %d", value, zn)
+				return false
+			} else {
+				params.ZHeatSetpoint[zi] = uint8(val)
+				flags |= 0x04
+			}
+		case "hold":
+			var val bool
+			switch value {
+				case "true":
+					val = true
+				case "false":
+					val = false
+				default:
+					log.Errorf("putConfig: invalid hold value '%s' for zone %d", value, zn)
+					return false
+				}
+			if val {
+				params.ZoneHold = 0x01 << zi
+			}
+			flags |= 0x02
+		default:
+			log.Errorf("putConfig: invalid parameter name '%s' for zone %d", param, zn)
+			return false
+		}
+
+		if flags != 0 {
+			log.Infof("calling WriteTableZ with flags: %d, 0x%x", zi, flags)
+			infinity.WriteTableZ(devTSTAT, params, uint8(zi), flags)
+		}
+
+		return true
+	} else if zn == 0 {
+		switch param {
+		case "mode":
+			if mode, ok := stringModeToRaw(value); !ok {
+				log.Errorf("putConfig: invalid mode value '%s'", value)
+				return false
+			} else {
+				p := TStatCurrentParams{Mode: mode}
+				infinity.WriteTable(devTSTAT, p, 0x10)
+				return true
+			}
+		default:
+			log.Errorf("putConfig: invalid parameter name '%s'", param)
+			return false
+		}
+	}
+
+	log.Errorf("putConfig: invalid zone number %d", zn)
+	return false
+}
+
 func getZNConfig(zi int) (*TStatZoneConfig, bool) {
 	if (zi < 0 || zi > 7) {
 		return nil, false
@@ -145,6 +238,7 @@ func getZNConfig(zi int) (*TStatZoneConfig, bool) {
 		OutdoorTemp:     params.OutdoorAirTemp,
 		Mode:            rawModeToString(params.Mode & 0xf),
 		Stage:           params.Mode >> 5,
+		Action:          rawActionToString(params.Mode >> 5),
 		FanMode:         rawFanModeToString(cfg.ZFanMode[zi]),
 		Hold:            &hold,
 		HeatSetpoint:    cfg.ZHeatSetpoint[zi],
@@ -210,6 +304,21 @@ func statePoller() {
 		c1, ok := getZonesConfig()
 		if ok {
 			cache.update("tstat", c1)
+			pf := "mqtt/infinitive"
+			for zi := range c1.Zones {
+				zp := fmt.Sprintf("%s/zone/%d", pf, c1.Zones[zi].ZoneNumber)
+				cache.update(zp+"/currentTemp", c1.Zones[zi].CurrentTemp)
+				cache.update(zp+"/humidity", c1.Zones[zi].CurrentHumidity)
+				cache.update(zp+"/coolSetpoint", c1.Zones[zi].CoolSetpoint)
+				cache.update(zp+"/heatSetpoint", c1.Zones[zi].HeatSetpoint)
+				cache.update(zp+"/fanMode", c1.Zones[zi].FanMode)
+				cache.update(zp+"/hold", *c1.Zones[zi].Hold)
+			}
+
+			cache.update(pf+"/outdoorTemp", c1.OutdoorTemp)
+			cache.update(pf+"/mode", c1.Mode)
+			cache.update(pf+"/action", c1.Action)
+			cache.update(pf+"/rawMode", c1.RawMode)
 		}
 
 		time.Sleep(time.Second * 1)
@@ -238,10 +347,13 @@ func attachSnoops() {
 				log.Debugf("heat pump coil temp is: %f", heatPump.CoilTemp)
 				log.Debugf("heat pump outside temp is: %f", heatPump.OutsideTemp)
 				cache.update("heatpump", &heatPump)
+				cache.update("mqtt/infinitive/coilTemp", heatPump.CoilTemp)
+				cache.update("mqtt/infinitive/outsideTemp", heatPump.OutsideTemp)
 			} else if bytes.Equal(frame.data[0:3], []byte{0x00, 0x3e, 0x02}) {
 				heatPump.Stage = data[0] >> 1
 				log.Debugf("HP stage is: %d", heatPump.Stage)
 				cache.update("heatpump", &heatPump)
+				cache.update("mqtt/infinitive/acStage", heatPump.Stage)
 			}
 		}
 	})
@@ -255,11 +367,13 @@ func attachSnoops() {
 				airHandler.BlowerRPM = binary.BigEndian.Uint16(data[1:5])
 				log.Debugf("blower RPM is: %d", airHandler.BlowerRPM)
 				cache.update("blower", &airHandler)
+				cache.update("mqtt/infinitive/blowerRPM", airHandler.BlowerRPM)
 			} else if bytes.Equal(frame.data[0:3], []byte{0x00, 0x03, 0x16}) {
 				airHandler.AirFlowCFM = binary.BigEndian.Uint16(data[4:8])
 				airHandler.ElecHeat = data[0]&0x03 != 0
 				log.Debugf("air flow CFM is: %d", airHandler.AirFlowCFM)
 				cache.update("blower", &airHandler)
+				cache.update("mqtt/infinitive/airflowCFM", airHandler.AirFlowCFM)
 			}
 		}
 	})
@@ -274,6 +388,7 @@ func attachSnoops() {
 				for zi := range damperPos.DamperPos {
 					if data[zi] != 0xff {
 						damperPos.DamperPos[zi] = uint8(data[zi])
+						cache.update(fmt.Sprintf("mqtt/infinitive/zone/%d/damperPos", zi+1), uint(damperPos.DamperPos[zi]) * 100 / 15)
 					}
 				}
 				log.Debug("zone damper positions: ", damperPos.DamperPos)
@@ -338,6 +453,7 @@ func (l *Logger) LogS(s string) {
 func main() {
 	httpPort := flag.Int("httpport", 8080, "HTTP port to listen on")
 	serialPort := flag.String("serial", "", "path to serial port")
+	mqttBrokerUrl := flag.String("mqtt", "", "url for mqtt broker")
 	doRespLog := flag.Bool("rlog", false, "enable resp log")
 	doDebugLog := flag.Bool("debug", false, "enable debug log level")
 
@@ -367,10 +483,15 @@ func main() {
 	cache.update("blower", airHandler)
 	cache.update("heatpump", heatPump)
 	cache.update("damperpos", damperPos)
+
 	attachSnoops()
 	err := infinity.Open()
 	if err != nil {
 		log.Panicf("error opening serial port: %s", err.Error())
+	}
+
+	if mqttBrokerUrl != nil {
+		ConnectMqtt(*mqttBrokerUrl, os.Getenv("MQTTPASS"))
 	}
 
 	go statePoller()
