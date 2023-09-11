@@ -79,18 +79,20 @@ Once it is working you may want to install how to install it under systemd to ru
 
 These additional options may be useful to you:
 
-Enable req/resp logging:
+  * Enable req/resp logging:
 ```
 $ infinitive ... --rlog
 ```
-This logs all requests and responses seen on the serial line in a log file
+This logs all requests and responses seen on the serial line in a log file named 'resplog' in the current directory.  This is intended
+for doing limited-run data capture for offline analysis.
 
-Enable debug level logging:
+  * Enable debug level logging:
+```
 $ infinitive ... --debug
 ```
 This sets the log level to Debug rather than the default Info, causing quite a bit more verbose logging.
 
-Enable MQTT data publication:
+  * Enable MQTT data publication:
 ```
 $ MQTTPASS=passwd infinitive ... --mqtt tcp://username@mqtt-broker-host:1883
 ```
