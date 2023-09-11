@@ -152,7 +152,8 @@ func webserver(port int) {
 			}
 
 			if len(args.Mode) > 0 {
-				p := TStatCurrentParams{Mode: stringModeToRaw(args.Mode)}
+				m, _ := stringModeToRaw(args.Mode)
+				p := TStatCurrentParams{Mode: m}
 				infinity.WriteTable(devTSTAT, p, 0x10)
 			}
 		}
@@ -217,7 +218,9 @@ func attachListener(ws *websocket.Conn) {
 	// log.Printf("dumping cached data")
 	for source, data := range cache {
 		// log.Printf("dumping %s", source)
-		ws.Write(serializeEvent(source, data))
+		if source[0:4] != "mqtt/" {
+			ws.Write(serializeEvent(source, data))
+		}
 	}
 
 	// wait for events
