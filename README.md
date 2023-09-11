@@ -1,25 +1,26 @@
 # THIS FORK IS A WORK IN PROGRESS
 
-This fork of infinitive has added read/write API and UI for multi-zone Infinity systems.  It currently (as of 8-Aug-2023) works and has
-been tested on a 2-zone system but it should work up to 4 or 8 zones.  The UI adapts to show the zones that appear to be in use.
+This fork of infinitive has added read/write API and UI for multi-zone Infinity systems.  It currently works (as of Sept 2023) and has
+been tested on a 2-zone system but it should work on unzoned or up to 4 or 8 zones.  The UI adapts to show the zones that appear to be in use.
 
-This code has been adapted for zoned systems from extensive previous work of others.  I (author of zoning enhancments) have not
-yet been able to test everything and have received very little feedback so far.  Active development and testing is still under way.
+This code has been adapted for zoned systems from extensive previous work of others.  More testing on non-zoned systems may be called for to
+be sure things still look OK in that setting, although it should all work fine.
 
-In particular we still need to look into the following:
+MQTT support has been added; the schema (topics and data representation) have been crafted to work well with the MQTT Climate integration,
+in an attempt to simplify Home Assitant integration (extending to zones and to reduce polling and improve responsiveness) without custom
+python integration code.  The MQTT interface could also be useful to others, if anyone out there is interested.
+
+Active development and testing are still under way.  In particular we still need to look into the following:
   * Not sure whether heating mode is reflected correctly in the UI or API.  Original work supported
     Heat Pump but we are now testing it on a system with AC and a gas heater.  Should have plenty of data in a
     few months.
   * Not sure how the updated UI will display the name of the one zone on a one-zone system - perhaps the zone name should be
     suppressed in that case if it is not commonly set up in a non-zone controller.
-  * For bonus points, trying to figure out how Dehumidify mode is represented so we can reflect it in th UI/API
-  * Will be adding reporting of automated zone damper status - mostly for fun I suppose
+  * For bonus points, trying to figure out how Dehumidify action is represented so we can reflect it in th UI/API
   * Fine-tune the detection of actual configured zones - currently using heuristic "currentTemp < 255" but hoping the acutal zone configs are hiding in there somewhere
   * Rebase to Will1604 fork or pick up backend comms changes and API enhancements
-  * more updates to README
-  * Working on a Home Assistant custom component for multi-zone use and which leverages the ws API used by the UI for faster
-    (push) updates and less load on the serial bus.  The existing hass-infinitive component from @mww012
-    works but only shows the 1st zone - I currently have a hacked-up version that supports multiple zones via inefficient polling.
+  * More updates to README
+  * MQTT: potentially add a "system ID" and maybe support read-only?
 
 This README has been updated with some info about this fork but more needs to be written.
 
@@ -57,9 +58,7 @@ Start Infinitive, providing the HTTP port to listen on for the management interf
 $ ./infinitive -httpport=8080 -serial=/dev/ttyUSB0 
 ```
 
-Logs are written to stderr.  For now I've been running Infinitive under screen.  If folks are interested in a proper start/stop script and log management, submit a pull request or let me know.
-
-If the RS-485 adapter is properly connected to your ABCD bus you should immediately see Infinitive logging messages indicating it is receiving data, such as:
+Logs are written to stderr.  If the RS-485 adapter is properly connected to your ABCD bus you should immediately see Infinitive logging messages indicating it is receiving data, such as:
 
 ```
 INFO[0000] read frame: 2001 -> 4001: READ     000302    
@@ -67,14 +66,38 @@ INFO[0000] read frame: 4001 -> 2001: RESPONSE 000302041100000414000004020000
 INFO[0000] read frame: 2001 -> 4001: READ     000316    
 INFO[0000] read frame: 4001 -> 2001: RESPONSE 0003160000000003ba004a2f780100037a 
 ```
-
 Browse to your host system's IP, with the port you provided on the command line, and you should see a page that looks similar to the following:
 
 <img src="https://raw.githubusercontent.com/lurgh/infinitive/master/screenshot.png"/>
 
-**Note:** I am not much of a frontend web developer.  I'd love to see pull requests for enhancements to the web interface.
-
 There is a brief delay between altering a setting and Infinitive updating the information displayed.  This is due to Infinitive polling the thermostat settings once per second.
+
+Once it is working you may want to install how to install it under systemd to run as a daemon.
+@mww012 did a great writeup of this procedure - see https://github.com/mww012/hass-infinitive/blob/master/info.md
+
+#### Additional options
+
+These additional options may be useful to you:
+
+Enable req/resp logging:
+```
+$ infinitive ... --rlog
+```
+This logs all requests and responses seen on the serial line in a log file
+
+Enable debug level logging:
+$ infinitive ... --debug
+```
+This sets the log level to Debug rather than the default Info, causing quite a bit more verbose logging.
+
+Enable MQTT data publication:
+```
+$ MQTTPASS=passwd infinitive ... --mqtt tcp://username@mqtt-broker-host:1883
+```
+password and username are optional, as needed by MQTT broker.  Password is passed in the environment so as
+not to be visible in "ps" etc.
+
+See below for MQTT schema.
 
 ## Building from source
 
@@ -270,6 +293,60 @@ This call is also supported as "GET /api/zone/1/heatpump" for backward compatibi
 ```
 
 All parameters are optional.  A single parameter may be updated by sending a JSON document containing only that parameter.  Vacation mode is disabled by setting `days` to `0`.  Valid values for `fanMode` are `auto`, `low`, `med`, and `high`.
+
+## MQTT API
+
+MQTT is a pub/sub bus that is used in many home automation settings.  This API is read/write and it assumes that
+it is running within a private, trusted environment - that is, there are not specific access controls beyond what
+is provided to access the broker.  We recommend at least using password authentication.
+
+All topics are published with the `retain` flag set so any new client will get all current values; updates are only posted
+at startup or as individual values change.  This does mean that clients could be susceptible of seeing old data if the
+service is no longer running.  Looking for a solution for this.
+
+When enabled by providing the MQTT broker URI and optional password, the following topics are supported:
+
+### Topics Published
+
+System-global topics:
+`infinitive/outdoorTemp`: Outside temp as reported by thermostat, whole number degrees
+`infinitive/mode`: System main mode normalized for Home Assistant, currently one of: `off`, `cool`, `heat`, `auto`
+`infinitive/action`: Current action, Home Assistant compatible, currently one of: `off`, `heating`, `cooling`, `idle`
+`infinitive/rawMode`: numeric representation of mode and action, a uint8 value - useful to developers for discovery
+
+Experimental, may change or disappear over time:
+`infinitive/coilTemp`: coil temp reported by outdoor unit, in 0.125-degree resolution
+`infinitive/outsideTemp`: outside temp reported by outdoor unit, in 0.125-degree resolution
+`infinitive/acStage`: compressor operating stage reported by outdoor unit, as a number 0/1/2
+`infinitive/blowerRPM`: blower speed reported by inside unit, in RPM, 0 when off
+`infinitive/airflowCFM`: airflow speed reported by inside unit, in cf/m, 0 when off
+
+Reported per zone, where X is a zone number 1-8:
+`infinitive/zone/X/currentTemp`: current temperature as reported by thermostat, in whole degrees
+`infinitive/zone/X/humidity`: current temperature as reported by thermostat, in percent RH
+`infinitive/zone/X/coolSetpoint`: current cool set point, in whole degrees
+`infinitive/zone/X/heatSetpoint`: current heat set point, in whole degrees
+`infinitive/zone/X/fanMode`: current fan mode setting, Home Assistant compatible: `low`, `med`, `high`, `auto`
+`infinitive/zone/X/hold`: bool flag for Hold setting, `false` or `true` (not really HA compatible, will be reworked)
+
+Experimental:
+`infinitive/zone/X/damperPos`: zone damper position reported by zoning unit, 0-100 as whole number percent where 100 is fully open
+
+### Topics Subscribed
+
+An MQTT client may publish to these topics in order to change operating configuration.  These acitons are taken immediately
+and there is no reply per se but any successful changes will result in infinitive publishing a data update for that
+parameter to reflect the change.  Logs will indicate if there are errors in processing the request.  The response can be delayed by up to
+1 second, due to the thermostat polling interval.
+
+Global topics:
+`infinitive/mode/set`: Set the main operating mode (same options as above)
+
+Zone topics:
+`infinitive/zone/X/coolSetpoint/set`: set the cool set point, as above
+`infinitive/zone/X/heatSetpoint/set`: set the heat set point, as above
+`infinitive/zone/X/fanMode/set`: set the fan mode setting, same options as above
+`infinitive/zone/X/hold/set`: set the zone hold setting, same options as above
 
 ## Details
 #### ABCD bus
