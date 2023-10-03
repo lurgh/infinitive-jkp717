@@ -4,7 +4,8 @@ This fork of infinitive has added read/write API and UI for multi-zone Infinity 
 been tested on a 2-zone system but it should work on unzoned or up to 4 or 8 zones.  The UI adapts to show the zones that appear to be in use.
 
 This code has been adapted for zoned systems from extensive previous work of others.  More testing on non-zoned systems may be called for to
-be sure things still look OK in that setting, although it should all work fine.
+be sure things still look OK in that setting, although it should all work fine.  Similarly, it was designed around a heatpump
+system but my extensions have been tested on a system with a gas-fueled heater.
 
 MQTT support has been added; the schema (topics and data representation) have been crafted to work well with the MQTT Climate integration,
 in an attempt to simplify Home Assitant integration (extending to zones and to reduce polling and improve responsiveness) without custom
@@ -20,7 +21,8 @@ Active development and testing are still under way.  In particular we still need
   * Fine-tune the detection of actual configured zones - currently using heuristic "currentTemp < 255" but hoping the acutal zone configs are hiding in there somewhere
   * Rebase to Will1604 fork or pick up backend comms changes and API enhancements
   * More updates to README
-  * MQTT: potentially add a "system ID" and maybe support read-only?
+  * MQTT: potentially add a "system ID" and maybe support a read-only option
+  * MQTT: add homeassitant discovery topics to automate setup of sensors
 
 This README has been updated with some info about this fork but more needs to be written.
 
@@ -315,24 +317,28 @@ System-global topics:
 * `infinitive/mode`: System main mode normalized for Home Assistant, currently one of: `off`, `cool`, `heat`, `auto`
 * `infinitive/action`: Current action, Home Assistant compatible, currently one of: `off`, `heating`, `cooling`, `idle`
 * `infinitive/rawMode`: numeric representation of mode and action, a uint8 value - useful to developers for discovery
+* `infinitive/humidity`: current humidity as reported by thermostat, in percent RH
 
 Experimental, may change or disappear over time:
 * `infinitive/coilTemp`: coil temp reported by outdoor unit, in 0.125-degree resolution
 * `infinitive/outsideTemp`: outside temp reported by outdoor unit, in 0.125-degree resolution
 * `infinitive/acStage`: compressor operating stage reported by outdoor unit, as a number 0/1/2
+* `infinitive/heatStage`: furnace operating stage, as a number 0/1/2; in HP systems this represents electric/emergency heat
+* `infinitive/elecHeat`: bool flag indicating HP air handle ris operating on electric heat
 * `infinitive/blowerRPM`: blower speed reported by inside unit, in RPM, 0 when off
 * `infinitive/airflowCFM`: airflow speed reported by inside unit, in cf/m, 0 when off
+* `infinitive/staticPressure`: static pressure reported by inside unit, in inches wc
 
 Reported per zone, where X is a zone number 1-8:
 * `infinitive/zone/X/currentTemp`: current temperature as reported by thermostat, in whole degrees
-* `infinitive/zone/X/humidity`: current temperature as reported by thermostat, in percent RH
+* `infinitive/zone/X/humidity`: current humidity as reported by thermostat, in percent RH
 * `infinitive/zone/X/coolSetpoint`: current cool set point, in whole degrees
 * `infinitive/zone/X/heatSetpoint`: current heat set point, in whole degrees
 * `infinitive/zone/X/fanMode`: current fan mode setting, Home Assistant compatible: `low`, `med`, `high`, `auto`
-* `infinitive/zone/X/hold`: bool flag for Hold setting, `false` or `true` (not really HA compatible, will be reworked)
-
-Experimental:
+* `infinitive/zone/X/hold`: bool flag for Hold setting, `false` or `true` (not really useful with HA -- use `preset` instead)
+* `infinitive/zone/X/preset`: HA-style "preset" flag; currently `hold` reflects Hold setting, `none` otherwise
 * `infinitive/zone/X/damperPos`: zone damper position reported by zoning unit, 0-100 as whole number percent where 100 is fully open
+
 
 ### Topics Subscribed
 
@@ -349,6 +355,7 @@ Zone topics:
 * `infinitive/zone/X/heatSetpoint/set`: set the heat set point, as above
 * `infinitive/zone/X/fanMode/set`: set the fan mode setting, same options as above
 * `infinitive/zone/X/hold/set`: set the zone hold setting, same options as above
+* `infinitive/zone/X/preset/set`: set the zone "preset" setting, "hold" or "none" as above
 
 ## Details
 #### ABCD bus
@@ -361,6 +368,48 @@ The protocol has been reverse engineered as Carrier has not published a protocol
 
 Infinitive reads and writes information from the Infinity thermostat.  It also gathers data by passively observing traffic exchanged between the thermostat and other system components.
 
+Building on the work documented above, a numer of additional details about the protocol have been discovered.
+
+Register 3b.06: some numbers, then dealer name and phone; numbers probably correspond to settings from the UI/SAM such as filter reminder, UV reminder, Humidifier reminder, Backlight, units F/C, auto mode enabled, sys heat/cool/heatcool, deadband, cycles/hr, programmable fan option
+
+Register 3b.07 - 3b.0d: seven 1-day schedules each corresponding to a day of week, encoded in 160 bytes as
+* for each of 8 zones
+  * for each of 4 time periods
+    * uint16 start time (min past midnight)
+    * uint8 heatSP
+    * uint8 coolSP
+    * uint8 0xff (optional fan setting or placeholder for it?)
+
+Register 3c.03: looks like semi-random remnants of other response data, some spliced together inconsistently, as if a buffer overrun
+
+Register 3c.0a: list of the 8 zone names (repeats content from 003b03); some extra 0 padding whcih doesn't seem to vary
+
+Register 3c.0b: unclear but consistent values over time
+
+Register 3c.0c: consistently all zeros
+
+Register 3c.0d: unclear but (1) bytes 01-02 increment hourly but stop incrementing at 870 (90 days); other values change occasionally
+```
+   003c0d5a0000005a00a50000000c00a50000000c00a50000005a00000000000000
+   003c0d5a0001005a00a50000000c00a50000000c00a50000005a00000000000000
+   003c0d5a08700a5a5aa50000000c00a50000000c00a50000005a00000000000000
+```
+
+Register 3c.0e: consistent similar patterns to 3c0d (a lot of 5a, c0) but has not changed at all in days
+```
+   003c0e00005a005a0000a5000c0000a5000c000007005a0000000000
+```
+
+Register 3c.0f: last byte mostly counts hours since midnight; next-to-last counts days.  not consistent, can't tell what base is
+```
+   003c0f000704080015b811
+```
+
+Register 3c.14: consistent, unchanged for days
+```
+   003c1401000000ff010000000001000100000000000000000000000000000000000000
+```
+
 #### Bryant Evolution
 I believe Infinitive should work with Bryant Evolution systems as they use the same ABCD bus.  Please let me know if you have success using Infinitive on a Bryant system.
 
@@ -369,13 +418,17 @@ I believe Infinitive should work with Bryant Evolution systems as they use the s
 Multi-zone systems are supported in this version.  We have tested it on a 2-zone system but it should work at least up to 4 and most likely up to the
 apparent 8-zone limit of the Infinity architecture.  Please get in touch if you have success or difficulty with a zoned system.
 
-The UI will automatically show all the zones, listed in order of their index number.  The API can access a single zone's data at a tine, or all zones
+The UI will automatically show all the zones, listed in order of their index number.  The REST and internal APIs can access a single zone's data at a tine, or all zones
 in one go; if your application wants all the zone data then it's more efficient to use the latter since the per-zone APIs will be slower owing to each
 one needing make redundant requests to the system.  The all-zones API is read-only; use the per-zone PUT method to make changes to a zone's configuration.
+The MQTT API has global and per-zone data as documented above.  The websocket API (used by the UI) is read-only and includes global data and all zones.
 
 #### Unimplemented features
 
 I don't use the thermostat's scheduling capabilities or vacation mode so Infinitive does not support them.  The schema and encoding of the scheduling data are fairly obvious so API support could be added if there is interest.  Reach out if this is something you'd like to see.  
+
+#### Protocol Analysis
+
 
 #### Issues
 ##### rPi USB stack
