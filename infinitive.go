@@ -5,6 +5,7 @@ import (
 	"encoding/binary"
 	"flag"
 	"fmt"
+	"encoding/hex"
 	"os"
 	"strconv"
 	"time"
@@ -20,6 +21,7 @@ type TStatZoneConfig struct {
 	ZoneName	string `json:"zoneName"`
 	FanMode         string `json:"fanMode"`
 	Hold            *bool  `json:"hold"`
+	Preset          string `json:"preset"`
 	HeatSetpoint    uint8  `json:"heatSetpoint"`
 	CoolSetpoint    uint8  `json:"coolSetpoint"`
 	HoldDuration	string `json:"holdDuration"`
@@ -42,9 +44,11 @@ type TStatZonesConfig struct {
 }
 
 type AirHandler struct {
-	BlowerRPM  uint16 `json:"blowerRPM"`
-	AirFlowCFM uint16 `json:"airFlowCFM"`
-	ElecHeat   bool   `json:"elecHeat"`
+	BlowerRPM      uint16  `json:"blowerRPM"`
+	AirFlowCFM     uint16  `json:"airFlowCFM"`
+	StaticPressure float32 `json:"staticPressure"`
+	HeatStage      uint8   `json:"heatStage"`
+	ElecHeat       bool    `json:"elecHeat"`
 }
 
 type HeatPump struct {
@@ -58,8 +62,9 @@ type DamperPosition struct {
 }
 
 type Logger struct {
-	f	*os.File;
+	f	*os.File
 	basems int64
+	tds	string
 }
 
 var RLogger Logger;
@@ -102,6 +107,11 @@ func getZonesConfig() (*TStatZonesConfig, bool) {
 	for zi := range params.ZCurrentTemp {
 		if params.ZCurrentTemp[zi] > 0 && params.ZCurrentTemp[zi] < 255 {
 			holdz := ((cfg.ZoneHold & (0x01 << zi)) != 0)
+			presetz := "none"
+
+			if holdz {
+				presetz = "hold"
+			}
 
 			zoneArr[zc] = TStatZoneConfig{
 					ZoneNumber:       uint8(zi+1),
@@ -109,6 +119,7 @@ func getZonesConfig() (*TStatZonesConfig, bool) {
 					CurrentHumidity:  params.ZCurrentHumidity[zi],
 					FanMode:          rawFanModeToString(cfg.ZFanMode[zi]),
 					Hold:             &holdz,
+					Preset:           presetz,
 					HeatSetpoint:     cfg.ZHeatSetpoint[zi],
 					CoolSetpoint:     cfg.ZCoolSetpoint[zi],
 					HoldDuration:     holdTime(cfg.ZHoldDuration[zi]),
@@ -166,7 +177,7 @@ func putConfig(zone string, param string, value string) bool {
 				params.ZHeatSetpoint[zi] = uint8(val)
 				flags |= 0x04
 			}
-		case "hold":
+		case "hold":	// dedicated 'hold' semantics
 			var val bool
 			switch value {
 				case "true":
@@ -175,6 +186,21 @@ func putConfig(zone string, param string, value string) bool {
 					val = false
 				default:
 					log.Errorf("putConfig: invalid hold value '%s' for zone %d", value, zn)
+					return false
+				}
+			if val {
+				params.ZoneHold = 0x01 << zi
+			}
+			flags |= 0x02
+		case "preset":	// 'preset' semantics to control hold - extend this if we add more presets
+			var val bool
+			switch value {
+				case "hold":
+					val = true
+				case "none":
+					val = false
+				default:
+					log.Errorf("putConfig: invalid preset value '%s' for zone %d", value, zn)
 					return false
 				}
 			if val {
@@ -231,6 +257,11 @@ func getZNConfig(zi int) (*TStatZoneConfig, bool) {
 	}
 
 	hold := cfg.ZoneHold & (0x01 << zi) != 0
+	presetz := "none"
+
+	if hold {
+		presetz = "hold"
+	}
 
 	return &TStatZoneConfig{
 		CurrentTemp:     params.ZCurrentTemp[zi],
@@ -241,6 +272,7 @@ func getZNConfig(zi int) (*TStatZoneConfig, bool) {
 		Action:          rawActionToString(params.Mode >> 5),
 		FanMode:         rawFanModeToString(cfg.ZFanMode[zi]),
 		Hold:            &hold,
+		Preset:          presetz,
 		HeatSetpoint:    cfg.ZHeatSetpoint[zi],
 		CoolSetpoint:    cfg.ZCoolSetpoint[zi],
 		HoldDuration:    holdTime(cfg.ZHoldDuration[zi]),
@@ -271,6 +303,20 @@ func getTstatSettings() (*TStatSettings, bool) {
 	}, true
 }
 
+func getRawData(dev uint16, tbl []byte) {
+	var addr InfinityTableAddr
+	copy(addr[:], tbl[0:3])
+	raw := InfinityProtocolRawRequest{&[]byte{}}
+
+	success := infinity.Read(dev, addr, raw)
+
+	if success {
+		log.Debugf("RAW: %04x/%02x%02x%02x: %s", dev, tbl[0], tbl[1], tbl[2], hex.EncodeToString(*raw.data))
+	} else {
+		log.Debugf("RAW: %04x/%02x%02x%02x: timeout", dev, tbl[0], tbl[1], tbl[2])
+	}
+}
+
 func getAirHandler() (AirHandler, bool) {
 	b := cache.get("blower")
 	tb, ok := b.(*AirHandler)
@@ -298,27 +344,40 @@ func getDamperPosition() (DamperPosition, bool) {
 	return *th, true
 }
 
-func statePoller() {
+func statePoller(monArray []uint16) {
+	mon_i := 0
 	for {
 		// called once for all zones
 		c1, ok := getZonesConfig()
 		if ok {
 			cache.update("tstat", c1)
 			pf := "mqtt/infinitive"
+			var hum uint8
 			for zi := range c1.Zones {
 				zp := fmt.Sprintf("%s/zone/%d", pf, c1.Zones[zi].ZoneNumber)
 				cache.update(zp+"/currentTemp", c1.Zones[zi].CurrentTemp)
 				cache.update(zp+"/humidity", c1.Zones[zi].CurrentHumidity)
+				hum = c1.Zones[zi].CurrentHumidity
 				cache.update(zp+"/coolSetpoint", c1.Zones[zi].CoolSetpoint)
 				cache.update(zp+"/heatSetpoint", c1.Zones[zi].HeatSetpoint)
 				cache.update(zp+"/fanMode", c1.Zones[zi].FanMode)
 				cache.update(zp+"/hold", *c1.Zones[zi].Hold)
+				cache.update(zp+"/preset", c1.Zones[zi].Preset)
 			}
 
+			if hum > 0 {
+				cache.update(pf+"/humidity", hum)
+			}
 			cache.update(pf+"/outdoorTemp", c1.OutdoorTemp)
 			cache.update(pf+"/mode", c1.Mode)
 			cache.update(pf+"/action", c1.Action)
 			cache.update(pf+"/rawMode", c1.RawMode)
+		}
+
+		// rotate through the registoer monitor probes, if any
+		if len(monArray) > 0 {
+			getRawData(0x2001, []byte{ 0x00, byte(monArray[mon_i] >> 8 & 0xff), byte(monArray[mon_i] & 0xff) })
+			mon_i = (mon_i + 1) % len(monArray)
 		}
 
 		time.Sleep(time.Second * 1)
@@ -364,16 +423,20 @@ func attachSnoops() {
 		airHandler, ok := getAirHandler()
 		if ok {
 			if bytes.Equal(frame.data[0:3], []byte{0x00, 0x03, 0x06}) {
-				airHandler.BlowerRPM = binary.BigEndian.Uint16(data[1:5])
+				airHandler.BlowerRPM = binary.BigEndian.Uint16(data[1:3])
 				log.Debugf("blower RPM is: %d", airHandler.BlowerRPM)
 				cache.update("blower", &airHandler)
 				cache.update("mqtt/infinitive/blowerRPM", airHandler.BlowerRPM)
 			} else if bytes.Equal(frame.data[0:3], []byte{0x00, 0x03, 0x16}) {
-				airHandler.AirFlowCFM = binary.BigEndian.Uint16(data[4:8])
+				airHandler.HeatStage = uint8(data[0])
+				airHandler.AirFlowCFM = binary.BigEndian.Uint16(data[4:6])
+				airHandler.StaticPressure = float32(float32(int(float32(binary.BigEndian.Uint16(data[7:9])) / float32(65536) * 10000 + 0.5))/10000.0)
 				airHandler.ElecHeat = data[0]&0x03 != 0
 				log.Debugf("air flow CFM is: %d", airHandler.AirFlowCFM)
 				cache.update("blower", &airHandler)
+				cache.update("mqtt/infinitive/heatStage", airHandler.HeatStage)
 				cache.update("mqtt/infinitive/airflowCFM", airHandler.AirFlowCFM)
+				cache.update("mqtt/infinitive/staticPressure", airHandler.StaticPressure)
 			}
 		}
 	})
@@ -400,26 +463,39 @@ func attachSnoops() {
 
 
 func (l *Logger) Open() (ok bool) {
-	var err error
-
 	ok = true
 
-	l.f, err = os.OpenFile("resplog", os.O_WRONLY|os.O_APPEND|os.O_CREATE, 0755)
+	tds := time.Now().Format("06010215")
+	rlfn := fmt.Sprintf("resplog.%s", tds)
+	f, err := os.OpenFile(rlfn, os.O_WRONLY|os.O_APPEND|os.O_CREATE, 0755)
 	if err != nil {
-		log.Errorf("Failed to open resp log file '%s': %s", "resplog", err)
+		log.Errorf("Failed to open resp log file '%s': %s", rlfn, err)
 		ok = false
 	} else {
-		log.Debugf("Opened resp log file 'resplog'")
+		log.Info("Opened resp log file '%s'", rlfn)
+		of := l.f
+		l.f = f
+		l.tds = tds
+		if of != nil {
+			of.Close()
+		}
 	}
 	l.basems = time.Now().UnixMilli()
 	return
 }
 
+func (l *Logger) CheckRotate() {
+	if l != nil && l.tds != "" && l.tds != time.Now().Format("06010215") {
+		l.Open()
+	}
+}
+
 func (l *Logger) Close() {
+	l.CheckRotate()
 	if l.f != nil {
 		err := l.f.Close()
 		if (err != nil) {
-			log.Warnf("Error onm closing resp logger: %", err)
+			log.Warnf("Error on closing resp logger: %", err)
 		} else {
 			l.f = nil
 		}
@@ -427,9 +503,9 @@ func (l *Logger) Close() {
 }
 
 func (l *Logger) Log(frame *InfinityFrame) {
-	msd := time.Now().UnixMilli() - l.basems
+	l.CheckRotate()
 	if l.f != nil {
-		l.f.WriteString(fmt.Sprintf("%08d ", msd))
+		l.f.WriteString(fmt.Sprintf("[%s] ", time.Now().Format(time.Stamp)));
 		_, err := l.f.WriteString(frame.String())
 		if err != nil { log.Error("Logger WriteString failed: ", err) }
 		l.f.WriteString("\n")
@@ -439,9 +515,8 @@ func (l *Logger) Log(frame *InfinityFrame) {
 }
 
 func (l *Logger) LogS(s string) {
-	msd := time.Now().UnixMilli() - l.basems
 	if l.f != nil {
-		l.f.WriteString(fmt.Sprintf("%08d ", msd))
+		l.f.WriteString(fmt.Sprintf("[%s] ", time.Now().Format(time.Stamp)));
 		_, err := l.f.WriteString(s)
 		if err != nil { log.Error("s.Logger WriteString failed: ", err) }
 		l.f.WriteString("\n")
@@ -469,6 +544,11 @@ func main() {
 	if doDebugLog != nil && *doDebugLog { loglevel = log.DebugLevel }
 	log.SetLevel(loglevel)
 
+	customFormatter := new(log.TextFormatter)
+	customFormatter.TimestampFormat = "2006-01-02 15:04:05"
+	customFormatter.FullTimestamp = true
+	log.SetFormatter(customFormatter)
+
 	if doRespLog != nil && *doRespLog {
 		if !RLogger.Open() {
 			panic("unable to open resp log file")
@@ -484,6 +564,11 @@ func main() {
 	cache.update("heatpump", heatPump)
 	cache.update("damperpos", damperPos)
 
+	rawMonTable := []uint16{
+		// 0x3c01, 0x3c03, 0x3c0a, 0x3c0b, 0x3c0c, 0x3c0d, 0x3c0e, 0x3c0f, 0x3c14, 0x3d02, 0x3d03, 
+		0x3b04, 0x3b05, 0x3b06, 0x3b0e, 0x3b0f, 0x3d02, 0x3d03,
+	}
+
 	attachSnoops()
 	err := infinity.Open()
 	if err != nil {
@@ -494,7 +579,7 @@ func main() {
 		ConnectMqtt(*mqttBrokerUrl, os.Getenv("MQTTPASS"))
 	}
 
-	go statePoller()
+	go statePoller(rawMonTable)
 	go statsPoller()
 	webserver(*httpPort)
 }
