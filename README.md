@@ -154,8 +154,8 @@ Replace [Z] with any zone number 1-8.  If you want data for multiple zones, it's
    "hold": true,
    "targetHumidity": 52,
    "zoneName": "Downstairs",
-   "holdDuration": "1:50",
-   "holdDurationMins": 110,
+   "overrideDuration": "1:50",
+   "overrideDurationMins": 110,
    "heatSetpoint": 68,
    "coolSetpoint": 74,
    "rawMode": 64
@@ -210,8 +210,8 @@ dictionary.  These parameters may for now also be inside the per-zone structures
 	 "hold":true,
 	 "heatSetpoint":72,
 	 "coolSetpoint":82,
-	 "holdDuration":"",
-	 "holdDurationMins":0,
+	 "overrideDuration":"",
+	 "overrideDurationMins":0,
 	 "outdoorTemp":0,
 	 "mode":"",
 	 "stage":0,
@@ -227,8 +227,8 @@ dictionary.  These parameters may for now also be inside the per-zone structures
 	 "hold":false,
 	 "heatSetpoint":73,
 	 "coolSetpoint":83,
-	 "holdDuration":"1:25",
-	 "holdDurationMins":85,
+	 "overrideDuration":"1:25",
+	 "overrideDurationMins":85,
 	 "outdoorTemp":0,
 	 "mode":"",
 	 "stage":0,
@@ -338,6 +338,7 @@ Reported per zone, where X is a zone number 1-8:
 * `infinitive/zone/X/hold`: bool flag for Hold setting, `false` or `true` (not really useful with HA -- use `preset` instead)
 * `infinitive/zone/X/preset`: HA-style "preset" flag; currently `hold` reflects Hold setting, `none` otherwise
 * `infinitive/zone/X/damperPos`: zone damper position reported by zoning unit, 0-100 as whole number percent where 100 is fully open
+* `infinitive/zone/X/overrideDurationMins`: minutes remaining on zone setting override, zero if none
 
 
 ### Topics Subscribed
@@ -408,6 +409,43 @@ Register 3c.0f: last byte mostly counts hours since midnight; next-to-last count
 Register 3c.14: consistent, unchanged for days
 ```
    003c1401000000ff010000000001000100000000000000000000000000000000000000
+```
+
+Register 3c.16: snooped from air handler to thermostat:
+```
+   000316 00 00 02 0002c1004de95a01000203
+          HS    CC
+```
+HS = Furnace heat stage (00=off, 01/02/03=low/med/hi)
+CC = Cooling flag (may be HP actually), 02 = cooling on my system, doesn't reflect stage
+
+Register 3d.02: read from Thermostat, contains actual zone temps, apparently both raw (to 1/16 dF) and displayable (whole number,
+apparently smoothed and not just rounded)
+```
+   003d02 a5 0101 046f 46 0104 0462 46 000000000000000000000000000000000000000000000000000000000000
+             FFFF TTTT TT ...
+```
+unknown flag (0xa5)
+Repeated per each of 8 zones:
+  FFFF = unknown flags (0x0101, 0x0104) 
+  TTTT = raw current temp x16
+  TT = smoothed current temp for display
+
+Register 3d.03: read from Thermostat: actuals incl outdoor temp and two humidity metrics (unknown what they are)
+```
+  003d03 a5 01 0337 0100 31 00 31 a5a5a55a5aa5
+               OOOO      HH    HR
+```
+OOOO = outside temp x16
+HH = Humidity (indoor, smoothhed) in %RH
+HR = Humidity (indoor, raw) in %RH
+
+Register 04.20 is regularly broadcast as a WRITE to f1f1 by the thermostat.  Fields look to be:
+```
+  00042 0c002c0000f01 056b 0102 2f 3c5000405600000000
+                      TTTT      HH
+  TTTT = 16x outdoor temp in dF
+  HH = indoor humidity in %RH
 ```
 
 #### Bryant Evolution
