@@ -363,7 +363,7 @@ func statePoller(monArray []uint16) {
 				cache.update(zp+"/heatSetpoint", c1.Zones[zi].HeatSetpoint)
 				cache.update(zp+"/fanMode", c1.Zones[zi].FanMode)
 				cache.update(zp+"/hold", *c1.Zones[zi].Hold)
-				cache.update(zp+"/overrideDuration", c1.Zones[zi].OvrdDuration)
+				cache.update(zp+"/overrideDurationMins", c1.Zones[zi].OvrdDurationMins)
 				cache.update(zp+"/preset", c1.Zones[zi].Preset)
 			}
 
