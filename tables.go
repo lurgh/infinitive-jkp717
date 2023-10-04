@@ -28,7 +28,7 @@ type TStatZoneParams struct {
 	ZTargetHumidity  [8]uint8
 	FanAutoCfg       uint8
 	Unknown          uint8
-	ZHoldDuration    [8]uint16
+	ZOvrdDuration    [8]uint16
 	ZName            [8][12]byte
 }
 

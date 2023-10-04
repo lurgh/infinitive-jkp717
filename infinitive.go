@@ -24,8 +24,8 @@ type TStatZoneConfig struct {
 	Preset          string `json:"preset"`
 	HeatSetpoint    uint8  `json:"heatSetpoint"`
 	CoolSetpoint    uint8  `json:"coolSetpoint"`
-	HoldDuration	string `json:"holdDuration"`
-	HoldDurationMins uint16 `json:"holdDurationMins"`
+	OvrdDuration	string `json:"overrideDuration"`
+	OvrdDurationMins uint16 `json:"overrideDurationMins"`
 	// the following are global and should be removed from per-zone but are left in for compatibility for now
 	OutdoorTemp     uint8  `json:"outdoorTemp"`
 	Mode            string `json:"mode"`
@@ -49,6 +49,7 @@ type AirHandler struct {
 	StaticPressure float32 `json:"staticPressure"`
 	HeatStage      uint8   `json:"heatStage"`
 	ElecHeat       bool    `json:"elecHeat"`
+	Action         string  `json:"action"`
 }
 
 type HeatPump struct {
@@ -122,8 +123,8 @@ func getZonesConfig() (*TStatZonesConfig, bool) {
 					Preset:           presetz,
 					HeatSetpoint:     cfg.ZHeatSetpoint[zi],
 					CoolSetpoint:     cfg.ZCoolSetpoint[zi],
-					HoldDuration:     holdTime(cfg.ZHoldDuration[zi]),
-					HoldDurationMins: cfg.ZHoldDuration[zi],
+					OvrdDuration:     holdTime(cfg.ZOvrdDuration[zi]),
+					OvrdDurationMins: cfg.ZOvrdDuration[zi],
 					ZoneName:         string(bytes.Trim(cfg.ZName[zi][:], " \000")) }
 
 			zc++
@@ -275,8 +276,8 @@ func getZNConfig(zi int) (*TStatZoneConfig, bool) {
 		Preset:          presetz,
 		HeatSetpoint:    cfg.ZHeatSetpoint[zi],
 		CoolSetpoint:    cfg.ZCoolSetpoint[zi],
-		HoldDuration:    holdTime(cfg.ZHoldDuration[zi]),
-		HoldDurationMins: cfg.ZHoldDuration[zi],
+		OvrdDuration:    holdTime(cfg.ZOvrdDuration[zi]),
+		OvrdDurationMins: cfg.ZOvrdDuration[zi],
 		ZoneName:        string(bytes.Trim(cfg.ZName[zi][:], " \000")),
 		TargetHumidity:  cfg.ZTargetHumidity[zi],
 		RawMode:         params.Mode,
@@ -362,6 +363,7 @@ func statePoller(monArray []uint16) {
 				cache.update(zp+"/heatSetpoint", c1.Zones[zi].HeatSetpoint)
 				cache.update(zp+"/fanMode", c1.Zones[zi].FanMode)
 				cache.update(zp+"/hold", *c1.Zones[zi].Hold)
+				cache.update(zp+"/overrideDuration", c1.Zones[zi].OvrdDuration)
 				cache.update(zp+"/preset", c1.Zones[zi].Preset)
 			}
 
@@ -370,7 +372,7 @@ func statePoller(monArray []uint16) {
 			}
 			cache.update(pf+"/outdoorTemp", c1.OutdoorTemp)
 			cache.update(pf+"/mode", c1.Mode)
-			cache.update(pf+"/action", c1.Action)
+			// cache.update(pf+"/action", c1.Action) // replaced by action set from snoop messages
 			cache.update(pf+"/rawMode", c1.RawMode)
 		}
 
@@ -432,9 +434,18 @@ func attachSnoops() {
 				airHandler.AirFlowCFM = binary.BigEndian.Uint16(data[4:6])
 				airHandler.StaticPressure = float32(float32(int(float32(binary.BigEndian.Uint16(data[7:9])) / float32(65536) * 10000 + 0.5))/10000.0)
 				airHandler.ElecHeat = data[0]&0x03 != 0
+				switch {
+				case data[2] & 0x03 != 0:
+					airHandler.Action = "cooling"
+				case data[0] & 0x03 != 0:
+					airHandler.Action = "heating"
+				default:
+					airHandler.Action = "idle"
+				}
 				log.Debugf("air flow CFM is: %d", airHandler.AirFlowCFM)
 				cache.update("blower", &airHandler)
 				cache.update("mqtt/infinitive/heatStage", airHandler.HeatStage)
+				cache.update("mqtt/infinitive/action", airHandler.Action)
 				cache.update("mqtt/infinitive/airflowCFM", airHandler.AirFlowCFM)
 				cache.update("mqtt/infinitive/staticPressure", airHandler.StaticPressure)
 			}
