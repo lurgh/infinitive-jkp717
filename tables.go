@@ -67,6 +67,7 @@ func (params TStatVacationParams) addr() InfinityTableAddr {
 type APIVacationConfig struct {
 	Active         *bool   `json:"active"`
 	Days           *uint8  `json:"days"`
+	Hours          *uint16 `json:"hours"`
 	MinTemperature *uint8  `json:"minTemperature"`
 	MaxTemperature *uint8  `json:"maxTemperature"`
 	MinHumidity    *uint8  `json:"minHumidity"`
@@ -75,7 +76,8 @@ type APIVacationConfig struct {
 }
 
 func (params TStatVacationParams) toAPI() APIVacationConfig {
-	api := APIVacationConfig{MinTemperature: &params.MinTemperature,
+	api := APIVacationConfig{Hours: &params.Hours,
+		MinTemperature: &params.MinTemperature,
 		MaxTemperature: &params.MaxTemperature,
 		MinHumidity:    &params.MinHumidity,
 		MaxHumidity:    &params.MaxHumidity}
@@ -83,7 +85,7 @@ func (params TStatVacationParams) toAPI() APIVacationConfig {
 	active := bool(params.Active == 1)
 	api.Active = &active
 
-	days := uint8(params.Hours / 7)
+	days := uint8((params.Hours + 23) / 24)
 	api.Days = &days
 
 	mode := rawFanModeToString(params.FanMode)
@@ -94,6 +96,19 @@ func (params TStatVacationParams) toAPI() APIVacationConfig {
 
 func (params *TStatVacationParams) fromAPI(config *APIVacationConfig) byte {
 	flags := byte(0)
+
+	if config.Active != nil {
+		params.Active = 0
+		if *config.Active == true {
+			params.Active = 1
+		}
+		flags |= 0x01
+	}
+
+	if config.Hours != nil {
+		params.Hours = *config.Hours
+		flags |= 0x02
+	}
 
 	if config.Days != nil {
 		params.Hours = uint16(*config.Days) * uint16(24)

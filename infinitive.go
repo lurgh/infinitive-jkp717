@@ -79,6 +79,18 @@ func holdTime(ht uint16) string {
 	return fmt.Sprintf("%d:%02d", ht/60, ht % 60)
 }
 
+// get vacation config and status
+func getVacationConfig() (*APIVacationConfig, bool) {
+	vac := TStatVacationParams{}
+	ok := infinity.ReadTable(devTSTAT, &vac)
+	if !ok {
+		return nil, false
+	}
+
+	vacAPI := vac.toAPI()
+	return &vacAPI, true
+}
+
 // get config and status for all zones in one go
 // this is more efficient than getting each zone separately since all the zones' data comes in one pair of serial transactions
 func getZonesConfig() (*TStatZonesConfig, bool) {
@@ -376,6 +388,21 @@ func statePoller(monArray []uint16) {
 			cache.update(pf+"/rawMode", c1.RawMode)
 		}
 
+		c2, ok := getVacationConfig()
+		if ok {
+			cache.update("vacation", c2)
+			pf := "mqtt/infinitive/vacation"
+			cache.update(pf+"/active", *c2.Active)
+			cache.update(pf+"/days", *c2.Days)
+			cache.update(pf+"/hours", *c2.Hours)
+			cache.update(pf+"/minTemp", *c2.MinTemperature)
+			cache.update(pf+"/maxTemp", *c2.MaxTemperature)
+			cache.update(pf+"/minHumidity", *c2.MinHumidity)
+			cache.update(pf+"/maxHumidity", *c2.MaxHumidity)
+			cache.update(pf+"/fanMode", *c2.FanMode)
+		}
+
+
 		// rotate through the registoer monitor probes, if any
 		if len(monArray) > 0 {
 			getRawData(0x2001, []byte{ 0x00, byte(monArray[mon_i] >> 8 & 0xff), byte(monArray[mon_i] & 0xff) })
@@ -577,7 +604,7 @@ func main() {
 
 	rawMonTable := []uint16{
 		// 0x3c01, 0x3c03, 0x3c0a, 0x3c0b, 0x3c0c, 0x3c0d, 0x3c0e, 0x3c0f, 0x3c14, 0x3d02, 0x3d03, 
-		0x3b04, 0x3b05, 0x3b06, 0x3b0e, 0x3b0f, 0x3d02, 0x3d03,
+		0x3b05, 0x3b06, 0x3b0e, 0x3b0f, 0x3d02, 0x3d03,
 	}
 
 	attachSnoops()
