@@ -296,6 +296,47 @@ func getZNConfig(zi int) (*TStatZoneConfig, bool) {
 	}, true
 }
 
+// write a change to a single parameter of a vacation setting
+// returns ok == true
+func putVacationConfig(param string, value string) bool {
+	params := TStatVacationParams{}
+	apiConfig := APIVacationConfig{}
+
+	switch param {
+	case "days":
+		if val, err := strconv.ParseUint(value, 10, 8); err != nil {
+			log.Errorf("putVacationConfig: invalid days value '%s'", value)
+			return false
+		} else {
+			v8 := uint8(val)
+			apiConfig.Days = &v8
+		}
+	case "hours":
+		if val, err := strconv.ParseUint(value, 10, 16); err != nil {
+			log.Errorf("putVacationConfig: invalid days value '%s'", value)
+			return false
+		} else {
+			v16 := uint16(val)
+			apiConfig.Hours = &v16
+		}
+	default:
+		log.Errorf("putVacationConfig: invalid parameter name '%s'", param)
+		return false
+	}
+
+	flags := params.fromAPI(&apiConfig)
+
+	if flags != 0 {
+		log.Infof("putVacationConfig: calling WriteTable with flags: 0x%x", flags)
+		infinity.WriteTable(devTSTAT, params, flags)
+	} else {
+		log.Warn("putVacationConfig: nothing to write")
+	}
+
+	return true
+}
+
+
 func getTstatSettings() (*TStatSettings, bool) {
 	tss := TStatSettings{}
 	ok := infinity.ReadTable(devTSTAT, &tss)
@@ -361,8 +402,10 @@ func statePoller(monArray []uint16) {
 	mon_i := 0
 	for {
 		// called once for all zones
-		c1, ok := getZonesConfig()
-		if ok {
+		c1, c1ok := getZonesConfig()
+		c2, c2ok := getVacationConfig()
+
+		if c1ok {
 			cache.update("tstat", c1)
 			pf := "mqtt/infinitive"
 			var hum uint8
@@ -376,7 +419,11 @@ func statePoller(monArray []uint16) {
 				cache.update(zp+"/fanMode", c1.Zones[zi].FanMode)
 				cache.update(zp+"/hold", *c1.Zones[zi].Hold)
 				cache.update(zp+"/overrideDurationMins", c1.Zones[zi].OvrdDurationMins)
-				cache.update(zp+"/preset", c1.Zones[zi].Preset)
+				if c2ok && *c2.Active {
+					cache.update(zp+"/preset", "vacation")
+				} else {
+					cache.update(zp+"/preset", c1.Zones[zi].Preset)
+				}
 			}
 
 			if hum > 0 {
@@ -388,8 +435,7 @@ func statePoller(monArray []uint16) {
 			cache.update(pf+"/rawMode", c1.RawMode)
 		}
 
-		c2, ok := getVacationConfig()
-		if ok {
+		if c2ok {
 			cache.update("vacation", c2)
 			pf := "mqtt/infinitive/vacation"
 			cache.update(pf+"/active", *c2.Active)

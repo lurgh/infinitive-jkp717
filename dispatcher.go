@@ -12,6 +12,13 @@ type EventListener struct {
 	ch chan []byte
 }
 
+type discoveryTopic struct {
+	Topic       string    `json:"state_topic"`
+	Name        string    `json:"name"`
+	State_class string    `json:"state_class"`
+	Unique_id   string    `json:"unique_id"`
+}
+
 type EventDispatcher struct {
 	listeners  map[*EventListener]bool
 	broadcast  chan []byte
@@ -109,6 +116,8 @@ func  mqttMessageHandler(client mqtt.Client, msg mqtt.Message) {
 			ps = ps[0:len(ps)-2]
 		}
 		_ = putConfig(ts[2], ts[3], ps)
+	} else if len(ts) == 4 && ts[1] == "vacation" {
+		_ = putVacationConfig(ts[2], ps)
 	} else if len(ts) == 3 {
 		// global
 		_ = putConfig("0", ts[1], ps)
@@ -138,7 +147,7 @@ func ConnectMqtt(url string, password string) {
 		mqttClient = cl
 	}
 
-	// subscribe
+	// subscribe for zone settings
 	t = cl.Subscribe("infinitive/zone/+/+/set", 0, mqttMessageHandler)
 	t.Wait()
 	if (t.Error() != nil) {
@@ -147,15 +156,51 @@ func ConnectMqtt(url string, password string) {
 		log.Info("MQTT: subscribe succeeded for infinitive/zone/+/+/set")
 	}
 
-	// subscribe
+	// subscribe for vacation settings
+	t = cl.Subscribe("infinitive/vacation/+/set", 0, mqttMessageHandler)
+	t.Wait()
+	if (t.Error() != nil) {
+		log.Error("MQTT: failed to subscribe for infinitive/vacation/+/set: ", t.Error())
+	} else {
+		log.Info("MQTT: subscribe succeeded for infinitive/vacation/+/set")
+	}
+
+	// subscribe for global settings
 	t = cl.Subscribe("infinitive/+/set", 0, mqttMessageHandler)
 	t.Wait()
 	if (t.Error() != nil) {
-		log.Error("MQTT: failed to subscribe for infinitive/zone/+/set: ", t.Error())
+		log.Error("MQTT: failed to subscribe for infinitive/+/set: ", t.Error())
 	} else {
-		log.Info("MQTT: subscribe succeeded for infinitive/zone/+/set")
+		log.Info("MQTT: subscribe succeeded for infinitive/+/set")
 	}
 
+	discoveryTopics := []discoveryTopic {
+		{ "infinitive/heatStage", "Heat Stage", "measurement", "hvac-sensors-heatstage" },
+		{ "infinitive/vacation/active", "Vacation Mode Active", "measurement", "hvac-sensors-vacay-active" },
+		{ "infinitive/vacation/days", "Vacation Mode Days Remaining", "measurement", "hvac-sensors-vacay-days" },
+		{ "infinitive/vacation/hours", "Vacation Mode Hours Remaining", "measurement", "hvac-sensors-vacay-hours" },
+		{ "infinitive/vacation/minTemp", "Vacation Mode Minimum Temperature", "measurement", "hvac-sensors-vacay-mint" },
+		{ "infinitive/vacation/maxTemp", "Vacation Mode Maximum Temperature", "measurement", "hvac-sensors-vacay-maxt" },
+		{ "infinitive/vacation/minHumidity", "Vacation Mode Minimum Humidity", "measurement", "hvac-sensors-vacay-minh" },
+		{ "infinitive/vacation/maxHumidity", "Vacation Mode Maximum Humidity", "measurement", "hvac-sensors-vacay-maxh" },
+		{ "infinitive/vacation/fanMode", "Vacation Mode Fan Mode", "measurement", "hvac-sensors-vacay-fm" },
+	}
+
+	// write discovery topics for HA
+	/*
+	_ = cl.Publish("homeassistant/sensor/infinitive/hs/config", 0, true,
+		`{"state_topic": "infinitive/heatStage","state_class": "measurement",
+		"name": "Heat Stage",
+		"unique_id": "hvac-sensors-heatstage"}`)
+		*/
+	for _, v := range discoveryTopics {
+		log.Errorf("MQTT STR %v", &v)
+		j, err := json.Marshal(&v)
+		log.Errorf("MQTT PUB %v: %s", err, j)
+		if err == nil {
+			_ = cl.Publish("homeassistant/sensor/infinitive/" + v.Unique_id + "/config", 0, true, j)
+		}
+	}
 }
 
 func init() {
