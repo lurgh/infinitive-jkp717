@@ -15,7 +15,8 @@ type EventListener struct {
 type discoveryTopic struct {
 	Topic       string    `json:"state_topic"`
 	Name        string    `json:"name"`
-	State_class string    `json:"state_class"`
+	Device_class string   `json:"device_class,omitempty"`
+	UoM         string   `json:"unit_of_measurement,omitempty"`
 	Unique_id   string    `json:"unique_id"`
 }
 
@@ -175,15 +176,31 @@ func ConnectMqtt(url string, password string) {
 	}
 
 	discoveryTopics := []discoveryTopic {
-		{ "infinitive/heatStage", "Heat Stage", "measurement", "hvac-sensors-heatstage" },
-		{ "infinitive/vacation/active", "Vacation Mode Active", "measurement", "hvac-sensors-vacay-active" },
-		{ "infinitive/vacation/days", "Vacation Mode Days Remaining", "measurement", "hvac-sensors-vacay-days" },
-		{ "infinitive/vacation/hours", "Vacation Mode Hours Remaining", "measurement", "hvac-sensors-vacay-hours" },
-		{ "infinitive/vacation/minTemp", "Vacation Mode Minimum Temperature", "measurement", "hvac-sensors-vacay-mint" },
-		{ "infinitive/vacation/maxTemp", "Vacation Mode Maximum Temperature", "measurement", "hvac-sensors-vacay-maxt" },
-		{ "infinitive/vacation/minHumidity", "Vacation Mode Minimum Humidity", "measurement", "hvac-sensors-vacay-minh" },
-		{ "infinitive/vacation/maxHumidity", "Vacation Mode Maximum Humidity", "measurement", "hvac-sensors-vacay-maxh" },
-		{ "infinitive/vacation/fanMode", "Vacation Mode Fan Mode", "measurement", "hvac-sensors-vacay-fm" },
+		{ "infinitive/outdoorTemp", "HVAC Outdoor Temperature", "temperature", "°F", "hvac-sensors-odt" },
+		{ "infinitive/humidity", "HVAC Indoor Humidity", "humidity", "%", "hvac-sensors-hum" },
+		{ "infinitive/rawMode", "HVAC Raw Mode", "", "", "hvac-sensors-rawmode" },
+		{ "infinitive/blowerRPM", "HVAC Blower RPM", "", "RPM", "hvac-sensors-blowerrpm" },
+		{ "infinitive/airflowCFM", "HVAC Airflow CFM", "", "CFM", "hvac-sensors-aflo" },
+		{ "infinitive/staticPressure", "HVAC Static Pressure", "distance", "in", "hvac-sensors-ahsp" },
+		{ "infinitive/coolStage", "HVAC Cool Stage", "", "", "hvac-sensors-acstage" },
+		{ "infinitive/heatStage", "HVAC Heat Stage", "", "", "hvac-sensors-heatstage" },
+		{ "infinitive/action", "HVAC Action", "enum", "", "hvac-sensors-actn" },
+
+		{ "infinitive/vacation/active", "Vacation Mode Active", "enum", "", "hvac-sensors-vacay-active" },  // maybe should be a binary_sensor
+		{ "infinitive/vacation/days", "Vacation Mode Days Remaining", "duration", "d", "hvac-sensors-vacay-days" },
+		{ "infinitive/vacation/hours", "Vacation Mode Hours Remaining", "duration", "h", "hvac-sensors-vacay-hours" },
+		{ "infinitive/vacation/minTemp", "Vacation Mode Minimum Temperature", "temperature", "°F", "hvac-sensors-vacay-mint" },
+		{ "infinitive/vacation/maxTemp", "Vacation Mode Maximum Temperature", "temperature", "°F", "hvac-sensors-vacay-maxt" },
+		{ "infinitive/vacation/minHumidity", "Vacation Mode Minimum Humidity", "humidity", "%", "hvac-sensors-vacay-minh" },
+		{ "infinitive/vacation/maxHumidity", "Vacation Mode Maximum Humidity", "humidity", "%", "hvac-sensors-vacay-maxh" },
+		{ "infinitive/vacation/fanMode", "Vacation Mode Fan Mode", "enum", "", "hvac-sensors-vacay-fm" },
+
+		// per-zone "bonus" sensors (outside of the Climate platform model)
+		// TODO: these should be parametrized, maybe do along with the Climate entities)
+		{ "infinitive/zone/1/damperPos", "HVAC Zone 1 Damper Postion", "", "%", "hvac-sensors-z1-dpos" },
+		{ "infinitive/zone/2/damperPos", "HVAC Zone 2 Damper Postion", "", "%", "hvac-sensors-z2-dpos" },
+		{ "infinitive/zone/1/flowWeight", "HVAC Zone 1 Airflow Weight", "", "", "hvac-sensors-z1-fwgt" },
+		{ "infinitive/zone/2/flowWeight", "HVAC Zone 2 Airflow Weight", "", "", "hvac-sensors-z2-fwgt" },
 	}
 
 	// write discovery topics for HA

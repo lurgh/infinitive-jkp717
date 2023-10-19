@@ -62,6 +62,8 @@ type DamperPosition struct {
 	DamperPos   [8]uint8 `json:"damperPosition"`
 }
 
+var zoneWeight [8]float32
+
 type Logger struct {
 	f	*os.File
 	basems int64
@@ -487,7 +489,7 @@ func attachSnoops() {
 				heatPump.Stage = data[0] >> 1
 				log.Debugf("HP stage is: %d", heatPump.Stage)
 				cache.update("heatpump", &heatPump)
-				cache.update("mqtt/infinitive/acStage", heatPump.Stage)
+				cache.update("mqtt/infinitive/coolStage", heatPump.Stage)
 			}
 		}
 	})
@@ -532,10 +534,21 @@ func attachSnoops() {
 		damperPos, ok := getDamperPosition()
 		if ok {
 			if bytes.Equal(frame.data[0:3], []byte{0x00, 0x03, 0x19}) {
+				var tdw float32
 				for zi := range damperPos.DamperPos {
 					if data[zi] != 0xff {
 						damperPos.DamperPos[zi] = uint8(data[zi])
 						cache.update(fmt.Sprintf("mqtt/infinitive/zone/%d/damperPos", zi+1), uint(damperPos.DamperPos[zi]) * 100 / 15)
+						tdw += zoneWeight[zi] * float32(damperPos.DamperPos[zi])
+					}
+				}
+				// calculate the airflow factor per zone if we have something
+				if tdw > 0 {
+					for zi := range damperPos.DamperPos {
+						if data[zi] != 0xff {
+							damperPos.DamperPos[zi] = uint8(data[zi])
+							cache.update(fmt.Sprintf("mqtt/infinitive/zone/%d/flowWeight", zi+1), (zoneWeight[zi] * float32(damperPos.DamperPos[zi]) / tdw))
+						}
 					}
 				}
 				log.Debug("zone damper positions: ", damperPos.DamperPos)
@@ -647,6 +660,19 @@ func main() {
 	cache.update("blower", airHandler)
 	cache.update("heatpump", heatPump)
 	cache.update("damperpos", damperPos)
+
+	// init zone airflow weights (doesn't seem to be pollable so need to configure these)
+	zoneRelPct := [8]float32{55, 33}
+	zoneLeakagePct := float32(12)
+
+	// calculate zone weights, will total 100
+	zoneTotalRelPct := float32(0)
+	for _, v := range zoneRelPct {
+		zoneTotalRelPct += v
+	}
+	for i, v := range zoneRelPct {
+		zoneWeight[i] = (zoneLeakagePct * (v / zoneTotalRelPct) + zoneRelPct[i])/100
+	}
 
 	rawMonTable := []uint16{
 		// 0x3c01, 0x3c03, 0x3c0a, 0x3c0b, 0x3c0c, 0x3c0d, 0x3c0e, 0x3c0f, 0x3c14, 0x3d02, 0x3d03, 
