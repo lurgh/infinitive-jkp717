@@ -18,6 +18,9 @@ Active development and testing are still under way.  In particular we still need
   * Rebase to Will1604 fork or pick up backend comms changes and API enhancements
   * MQTT: potentially add a "system ID" and maybe support a read-only option
   * MQTT: add homeassitant discovery topics for the Climate entities
+  * MQTT: controls to change overrideDuration
+  * MQTT: add discovery topics for per-zone overrideDuration and add to Climate config
+  * Consider moving the per-zone "bonus" sensors into a single JSON attributes object compatible with Climate
 
 This README has been updated with some info about this fork but more needs to be written.
 
@@ -335,7 +338,7 @@ Reported per zone, where X is a zone number 1-8:
 * `infinitive/zone/X/hold`: bool flag for Hold setting, `false` or `true` (not really useful with HA -- use `preset` instead)
 * `infinitive/zone/X/preset`: HA-style "preset" flag; currently `hold`, `vacation`, or `none`
 * `infinitive/zone/X/damperPos`: zone damper position reported by zoning unit, 0-100 as whole number percent where 100 is fully open
-* `infinitive/zone/X/flowWeight`: airflow allocation factor for this zone as a decimal fraction (0-1) - multiply to total airflowCFM
+* `infinitive/zone/X/flowWeight`: airflow allocation factor for this zone as a decimal fraction (0-1) - multiply the total airflowCFM
   by this number to get the reported airflow for this zone.
 * `infinitive/zone/X/overrideDurationMins`: minutes remaining on zone setting override, zero if none
 
@@ -343,7 +346,7 @@ HomeAssistant MQTT Discovery topics published:
 * `homeassistant/sensor/infinitive/*/config`: discovery topics, one per sensor, for:
   * all the "global" sensors: `outdoorTemp`, `humidity`, `rawMode`, `blowerRPM`, `airflowCFM`, `staticPressure`, `coolStage`, `heatStage`, `action`
   * all the vacation sensors: `vacation/active`, `vacation/days`, `vacation/hours`, `vacation/minTemp`, `vacation/maxTemp`, `vacation/minHumidity`, `vacation/maxHumidity`, `vacation/fanMode`
-  * the per-zone "bonus" sensors (not supported by the Climate integration): `damperPos`, `flowWeight`
+  * per-zone "bonus" sensors (not supported by the Climate integration): `damperPos`, `flowWeight`, `overrideDurationMins`
 
 If the MQTT integration and MQTT Discovery are enabled in your HomeAssistant instance, 19 or more sensors will be created.  For now you need to
 manually configure the MQTT Climate entities per zone, by adding data like this to your configuration.yaml file with one "climate" per zone and

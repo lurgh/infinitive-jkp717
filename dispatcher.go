@@ -201,6 +201,8 @@ func ConnectMqtt(url string, password string) {
 		{ "infinitive/zone/2/damperPos", "HVAC Zone 2 Damper Postion", "", "%", "hvac-sensors-z2-dpos" },
 		{ "infinitive/zone/1/flowWeight", "HVAC Zone 1 Airflow Weight", "", "", "hvac-sensors-z1-fwgt" },
 		{ "infinitive/zone/2/flowWeight", "HVAC Zone 2 Airflow Weight", "", "", "hvac-sensors-z2-fwgt" },
+		{ "infinitive/zone/1/overrideDurationMins", "HVAC Zone 1 Override Duration", "duration", "min", "hvac-sensors-z1-odur" },
+		{ "infinitive/zone/2/overrideDurationMins", "HVAC Zone 2 Override Duration", "duration", "min", "hvac-sensors-z2-odur" },
 	}
 
 	// write discovery topics for HA
