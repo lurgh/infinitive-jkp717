@@ -374,7 +374,7 @@ func getRawData(dev uint16, tbl []byte) {
 }
 
 func getAirHandler() (AirHandler, bool) {
-	b := cache.get("blower")
+	b := wsCache.get("blower")
 	tb, ok := b.(*AirHandler)
 	if !ok {
 		return AirHandler{}, false
@@ -383,7 +383,7 @@ func getAirHandler() (AirHandler, bool) {
 }
 
 func getHeatPump() (HeatPump, bool) {
-	h := cache.get("heatpump")
+	h := wsCache.get("heatpump")
 	th, ok := h.(*HeatPump)
 	if !ok {
 		return HeatPump{}, false
@@ -392,7 +392,7 @@ func getHeatPump() (HeatPump, bool) {
 }
 
 func getDamperPosition() (DamperPosition, bool) {
-	h := cache.get("damperpos")
+	h := wsCache.get("damperpos")
 	th, ok := h.(*DamperPosition)
 	if !ok {
 		return DamperPosition{}, false
@@ -408,46 +408,46 @@ func statePoller(monArray []uint16) {
 		c2, c2ok := getVacationConfig()
 
 		if c1ok {
-			cache.update("tstat", c1)
+			wsCache.update("tstat", c1)
 			pf := "mqtt/infinitive"
 			var hum uint8
 			for zi := range c1.Zones {
 				zp := fmt.Sprintf("%s/zone/%d", pf, c1.Zones[zi].ZoneNumber)
-				cache.update(zp+"/currentTemp", c1.Zones[zi].CurrentTemp)
-				cache.update(zp+"/humidity", c1.Zones[zi].CurrentHumidity)
+				mqttCache.update(zp+"/currentTemp", c1.Zones[zi].CurrentTemp)
+				mqttCache.update(zp+"/humidity", c1.Zones[zi].CurrentHumidity)
 				hum = c1.Zones[zi].CurrentHumidity
-				cache.update(zp+"/coolSetpoint", c1.Zones[zi].CoolSetpoint)
-				cache.update(zp+"/heatSetpoint", c1.Zones[zi].HeatSetpoint)
-				cache.update(zp+"/fanMode", c1.Zones[zi].FanMode)
-				cache.update(zp+"/hold", *c1.Zones[zi].Hold)
-				cache.update(zp+"/overrideDurationMins", c1.Zones[zi].OvrdDurationMins)
+				mqttCache.update(zp+"/coolSetpoint", c1.Zones[zi].CoolSetpoint)
+				mqttCache.update(zp+"/heatSetpoint", c1.Zones[zi].HeatSetpoint)
+				mqttCache.update(zp+"/fanMode", c1.Zones[zi].FanMode)
+				mqttCache.update(zp+"/hold", *c1.Zones[zi].Hold)
+				mqttCache.update(zp+"/overrideDurationMins", c1.Zones[zi].OvrdDurationMins)
 				if c2ok && *c2.Active {
-					cache.update(zp+"/preset", "vacation")
+					mqttCache.update(zp+"/preset", "vacation")
 				} else {
-					cache.update(zp+"/preset", c1.Zones[zi].Preset)
+					mqttCache.update(zp+"/preset", c1.Zones[zi].Preset)
 				}
 			}
 
 			if hum > 0 {
-				cache.update(pf+"/humidity", hum)
+				mqttCache.update(pf+"/humidity", hum)
 			}
-			cache.update(pf+"/outdoorTemp", c1.OutdoorTemp)
-			cache.update(pf+"/mode", c1.Mode)
-			// cache.update(pf+"/action", c1.Action) // replaced by action set from snoop messages
-			cache.update(pf+"/rawMode", c1.RawMode)
+			mqttCache.update(pf+"/outdoorTemp", c1.OutdoorTemp)
+			mqttCache.update(pf+"/mode", c1.Mode)
+			// mqttCache.update(pf+"/action", c1.Action) // replaced by action set from snoop messages
+			mqttCache.update(pf+"/rawMode", c1.RawMode)
 		}
 
 		if c2ok {
-			cache.update("vacation", c2)
+			wsCache.update("vacation", c2)
 			pf := "mqtt/infinitive/vacation"
-			cache.update(pf+"/active", *c2.Active)
-			cache.update(pf+"/days", *c2.Days)
-			cache.update(pf+"/hours", *c2.Hours)
-			cache.update(pf+"/minTemp", *c2.MinTemperature)
-			cache.update(pf+"/maxTemp", *c2.MaxTemperature)
-			cache.update(pf+"/minHumidity", *c2.MinHumidity)
-			cache.update(pf+"/maxHumidity", *c2.MaxHumidity)
-			cache.update(pf+"/fanMode", *c2.FanMode)
+			mqttCache.update(pf+"/active", *c2.Active)
+			mqttCache.update(pf+"/days", *c2.Days)
+			mqttCache.update(pf+"/hours", *c2.Hours)
+			mqttCache.update(pf+"/minTemp", *c2.MinTemperature)
+			mqttCache.update(pf+"/maxTemp", *c2.MaxTemperature)
+			mqttCache.update(pf+"/minHumidity", *c2.MinHumidity)
+			mqttCache.update(pf+"/maxHumidity", *c2.MaxHumidity)
+			mqttCache.update(pf+"/fanMode", *c2.FanMode)
 		}
 
 
@@ -482,14 +482,14 @@ func attachSnoops() {
 				heatPump.OutsideTemp = float32(binary.BigEndian.Uint16(data[0:2])) / float32(16)
 				log.Debugf("heat pump coil temp is: %f", heatPump.CoilTemp)
 				log.Debugf("heat pump outside temp is: %f", heatPump.OutsideTemp)
-				cache.update("heatpump", &heatPump)
-				cache.update("mqtt/infinitive/coilTemp", heatPump.CoilTemp)
-				cache.update("mqtt/infinitive/outsideTemp", heatPump.OutsideTemp)
+				wsCache.update("heatpump", &heatPump)
+				mqttCache.update("mqtt/infinitive/coilTemp", heatPump.CoilTemp)
+				mqttCache.update("mqtt/infinitive/outsideTemp", heatPump.OutsideTemp)
 			} else if bytes.Equal(frame.data[0:3], []byte{0x00, 0x3e, 0x02}) {
 				heatPump.Stage = data[0] >> 1
 				log.Debugf("HP stage is: %d", heatPump.Stage)
-				cache.update("heatpump", &heatPump)
-				cache.update("mqtt/infinitive/coolStage", heatPump.Stage)
+				wsCache.update("heatpump", &heatPump)
+				mqttCache.update("mqtt/infinitive/coolStage", heatPump.Stage)
 			}
 		}
 	})
@@ -502,8 +502,8 @@ func attachSnoops() {
 			if bytes.Equal(frame.data[0:3], []byte{0x00, 0x03, 0x06}) {
 				airHandler.BlowerRPM = binary.BigEndian.Uint16(data[1:3])
 				log.Debugf("blower RPM is: %d", airHandler.BlowerRPM)
-				cache.update("blower", &airHandler)
-				cache.update("mqtt/infinitive/blowerRPM", airHandler.BlowerRPM)
+				wsCache.update("blower", &airHandler)
+				mqttCache.update("mqtt/infinitive/blowerRPM", airHandler.BlowerRPM)
 			} else if bytes.Equal(frame.data[0:3], []byte{0x00, 0x03, 0x16}) {
 				airHandler.HeatStage = uint8(data[0])
 				airHandler.AirFlowCFM = binary.BigEndian.Uint16(data[4:6])
@@ -518,11 +518,11 @@ func attachSnoops() {
 					airHandler.Action = "idle"
 				}
 				log.Debugf("air flow CFM is: %d", airHandler.AirFlowCFM)
-				cache.update("blower", &airHandler)
-				cache.update("mqtt/infinitive/heatStage", airHandler.HeatStage)
-				cache.update("mqtt/infinitive/action", airHandler.Action)
-				cache.update("mqtt/infinitive/airflowCFM", airHandler.AirFlowCFM)
-				cache.update("mqtt/infinitive/staticPressure", airHandler.StaticPressure)
+				wsCache.update("blower", &airHandler)
+				mqttCache.update("mqtt/infinitive/heatStage", airHandler.HeatStage)
+				mqttCache.update("mqtt/infinitive/action", airHandler.Action)
+				mqttCache.update("mqtt/infinitive/airflowCFM", airHandler.AirFlowCFM)
+				mqttCache.update("mqtt/infinitive/staticPressure", airHandler.StaticPressure)
 			}
 		}
 	})
@@ -538,7 +538,7 @@ func attachSnoops() {
 				for zi := range damperPos.DamperPos {
 					if data[zi] != 0xff {
 						damperPos.DamperPos[zi] = uint8(data[zi])
-						cache.update(fmt.Sprintf("mqtt/infinitive/zone/%d/damperPos", zi+1), uint(damperPos.DamperPos[zi]) * 100 / 15)
+						mqttCache.update(fmt.Sprintf("mqtt/infinitive/zone/%d/damperPos", zi+1), uint(damperPos.DamperPos[zi]) * 100 / 15)
 						tdw += zoneWeight[zi] * float32(damperPos.DamperPos[zi])
 					}
 				}
@@ -547,12 +547,12 @@ func attachSnoops() {
 					for zi := range damperPos.DamperPos {
 						if data[zi] != 0xff {
 							damperPos.DamperPos[zi] = uint8(data[zi])
-							cache.update(fmt.Sprintf("mqtt/infinitive/zone/%d/flowWeight", zi+1), (zoneWeight[zi] * float32(damperPos.DamperPos[zi]) / tdw))
+							mqttCache.update(fmt.Sprintf("mqtt/infinitive/zone/%d/flowWeight", zi+1), (zoneWeight[zi] * float32(damperPos.DamperPos[zi]) / tdw))
 						}
 					}
 				}
 				log.Debug("zone damper positions: ", damperPos.DamperPos)
-				cache.update("damperpos", &damperPos)
+				wsCache.update("damperpos", &damperPos)
 			}
 		}
 	})
@@ -657,9 +657,9 @@ func main() {
 	airHandler := new(AirHandler)
 	heatPump := new(HeatPump)
 	damperPos := new(DamperPosition)
-	cache.update("blower", airHandler)
-	cache.update("heatpump", heatPump)
-	cache.update("damperpos", damperPos)
+	wsCache.update("blower", airHandler)
+	wsCache.update("heatpump", heatPump)
+	wsCache.update("damperpos", damperPos)
 
 	// init zone airflow weights (doesn't seem to be pollable so need to configure these)
 	zoneRelPct := [8]float32{55, 33}

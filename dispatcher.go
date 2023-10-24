@@ -2,6 +2,7 @@ package main
 
 import (
 	"fmt"
+	"time"
 	"strings"
 	"encoding/json"
 	log "github.com/sirupsen/logrus"
@@ -127,6 +128,7 @@ func  mqttMessageHandler(client mqtt.Client, msg mqtt.Message) {
 	}
 }
 
+// set up for async connect/reconnect (for robustness across restarts on eithesride) 
 func ConnectMqtt(url string, password string) {
 
 	// set mqtt client options
@@ -134,22 +136,28 @@ func ConnectMqtt(url string, password string) {
 	co.AddBroker(url)
 	co.SetPassword(password)
 	co.SetClientID("infinitive_mqtt_client")
+	co.SetOnConnectHandler(mqttOnConnect)
+	co.SetConnectionLostHandler(func(cl mqtt.Client, err error) {log.Info("MQTT: Connection lost: ", err.Error())})
+	co.SetReconnectingHandler(func(cl mqtt.Client, _ *mqtt.ClientOptions) {log.Info("MQTT: Trying to reconnect")})
+	co.SetConnectRetry(true)
+	co.SetConnectRetryInterval(time.Minute)
+	co.SetAutoReconnect(true)
+	co.SetMaxReconnectInterval(5 * time.Minute)
 
 	// create client
-	cl := mqtt.NewClient(co)
+	mqttClient = mqtt.NewClient(co)
 
-	// connect
-	t := cl.Connect()
-	t.Wait()
-	if (t.Error() != nil) {
-		log.Error("MQTT: failed to connect to MQTT broker: ", t.Error())
-	} else {
-		log.Info("MQTT: connected to MQTT broker")
-		mqttClient = cl
-	}
+	// start trying to connect - resolved in callbacks
+	log.Info("MTQQ: Start trying to connect")
+	mqttClient.Connect()
+}
+
+// on connect, subscribe to needed topics
+func mqttOnConnect(cl mqtt.Client) {
+	log.Info("MQTT: Connected, subscribing...")
 
 	// subscribe for zone settings
-	t = cl.Subscribe("infinitive/zone/+/+/set", 0, mqttMessageHandler)
+	t := cl.Subscribe("infinitive/zone/+/+/set", 0, mqttMessageHandler)
 	t.Wait()
 	if (t.Error() != nil) {
 		log.Error("MQTT: failed to subscribe for infinitive/zone/+/+/set: ", t.Error())
@@ -220,6 +228,9 @@ func ConnectMqtt(url string, password string) {
 			_ = cl.Publish("homeassistant/sensor/infinitive/" + v.Unique_id + "/config", 0, true, j)
 		}
 	}
+
+	// flush the MQTT value cache
+	mqttCache.clear()
 }
 
 func init() {

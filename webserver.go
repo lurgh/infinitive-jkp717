@@ -216,11 +216,8 @@ func attachListener(ws *websocket.Conn) {
 	Dispatcher.register <- listener
 
 	// log.Printf("dumping cached data")
-	for source, data := range cache {
-		// log.Printf("dumping %s", source)
-		if source[0:4] != "mqtt/" {
-			ws.Write(serializeEvent(source, data))
-		}
+	for source, data := range wsCache.cacheMap {
+		ws.Write(serializeEvent(source, data))
 	}
 
 	// wait for events
