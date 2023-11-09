@@ -1,6 +1,6 @@
 # THIS FORK IS A WORK IN PROGRESS
 
-This fork of infinitive has added read/write API and UI for multi-zone Infinity systems.  It currently works (as of October 2023) and has
+This fork of infinitive has added read/write API and UI for multi-zone Infinity systems.  It currently works well (as of October 2023) and has
 been tested on a 2-zone system but it should work on unzoned or up to 4 or 8 zones.  The UI adapts to show the zones that appear to be in use.
 
 This code has been adapted from extensive previous work of others.  It should still work fine on non-zoned systems but there may be
@@ -15,12 +15,11 @@ python integration code.  Of course, the MQTT interface could also be useful on 
 Active development and testing are still under way.  In particular we still need to look into the following:
   * Still hoping to figure out how Dehumidify action is represented so we can reflect it in th UI/API - may need to resort to heuristics
   * Fine-tune the detection of actual configured zones - currently using heuristic "currentTemp < 255" but hoping the acutal zone configs are hiding in there somewhere
-  * Rebase to Will1604 fork or pick up backend comms changes and API enhancements
+  * Review API enhancements from the Will1604 fork to see if anything useful to pick up
   * MQTT: potentially add a "system ID" and maybe support a read-only option
-  * MQTT: add homeassitant discovery topics for the Climate entities
+  * MQTT: add homeassitant discovery topics for the Climate entities (all the primitive sensors and controls already have it)
   * MQTT: controls to change overrideDuration
-  * MQTT: add discovery topics for per-zone overrideDuration and add to Climate config
-  * Consider moving the per-zone "bonus" sensors into a single JSON attributes object compatible with Climate
+  * Consider moving the per-zone "bonus" sensors into a single JSON attributes object compatible with MQTT Climate integration
 
 This README has been updated with some info about this fork but more needs to be written.
 
@@ -34,6 +33,11 @@ This fork implements read/write and UI for multiple-zone systems.  It is of cour
 
 ## Getting started
 #### Hardware setup
+
+This fork has been developed and tested on a Raspberry Pi 3B+ running current Raspberry Pi OS, and an external USB RS485 dongle.
+
+Older notes:
+
 I've done all my development on a Raspberry Pi, although any reasonably performant Linux system with an RS-485 interface should work.  I chose the Pi 3 since the built-in WiFi saved me the hassle of running Ethernet to my furnace.  I'm not sure if older Pis have enough horsepower to run the Infinitive software.  If you give it a shot and are successful, please let me know so I can update this information.
 
 In addition to a Linux system, you'll need to source an adapter to communicate on the RS-485 bus.  I am using a FTDI chipset USB to RS-485 adapter that I bought from Amazon.  There are a variety of adapters on Amazon and eBay, although it may take a few attempts to find one that works reliably.
@@ -41,7 +45,7 @@ In addition to a Linux system, you'll need to source an adapter to communicate o
 Once you have a RS-485 adapter you'll need to connect it to your ABCD bus. The easiest way to do this is by attaching new wires to the A and B terminals of the ABCD bus connector inside your furnace and connecting them to your adapter. The A and B lines are used for RS-485 communication, while C and D are 24V AC power. **Do not connect your RS-485 adapter to the C and D terminals unless you want to see its magic smoke.** 
 
 #### Software
-NOTE: this branch is not yet getting binary releases - you will need to build it yourself for now (see below).
+NOTE: this branch is not yet getting binary releases - you will need to build it yourself for now (see below).  Please open an Issue if you would like to express interest in getting builds released.
 
 Start Infinitive, at minimum providing the HTTP port to listen on for the management interface and the path to the correct serial device.
 
@@ -74,8 +78,8 @@ These additional options may be useful to you:
 ```
 $ infinitive ... --rlog
 ```
-This logs all requests and responses seen on the serial bus in an hourly log file named 'resplog.YYMMDDHH' in the current directory.  This is intended
-to capture data for offline analysis.
+This logs all requests and responses seen on the serial bus in an hourly log file named 'resplog.YYMMDDHH' which will be created in the current directory.  This is intended
+to capture serial bus data for offline analysis.
 
   * Enable debug level logging:
 ```
@@ -87,7 +91,7 @@ This sets the log level to Debug rather than the default Info, causing quite a b
 ```
 $ MQTTPASS=passwd infinitive ... --mqtt tcp://username@mqtt-broker-host:1883
 ```
-password and username are optional, as needed by MQTT broker.  Password is passed in the environment so as
+password and username are optional, as needed by your MQTT broker.  Password is passed in the environment so as
 not to be visible in "ps" etc.
 
 See below for MQTT schema.
@@ -97,9 +101,12 @@ See below for MQTT schema.
 If you'd like to build Infinitive from source, first confirm you have a working Go environment (I've been using release 1.20.6).  Ensure your GOPATH and GOHOME are set correctly, then:
 
 ```
-$ go get github.com/acd/infinitive
-$ go build github.com/acd/infinitive
+$ go get github.com/lurgh/infinitive
+$ go build github.com/lurgh/infinitive
 ```
+
+Alternatively you can clone the github repo and type "make".
+
 Note: If you make changes to the code or other resources in the assets directory you will need to rebuild the bindata_assetfs.go file. You will need the go-bindata-assetfs utility.
  
 1. Install go-bindata-assetfs into your go folders
@@ -117,16 +124,12 @@ $ go install github.com/elazarl/go-bindata-assetfs/...
 
 2. Rebuild bindata_assetfs.go
 
-From within the infinitive folder execute
-```
-$ go-bindata-assetfs assets/...
-```
-
+You can use the "make" command to rebuild the assets if you change the sources. 
 
 ## JSON API
 
 Infinitive exposes a JSON API to retrieve and manipulate thermostat parameters.  There are features implemented in the MQTT API that have not made their way here yet
-but would be easy enough to add if there is interest.
+but would be easy enough to add if there is interest.  This API has been extended to support multiple-zone systems efficiently but is intended to be backward-compatible with the 1-zone API available in upstream versions of infinitive.
 
 #### GET /api/zone/[Z]/config
 
@@ -236,7 +239,7 @@ rawMode included for debugging purposes. It encodes stage and mode.
 
 #### GET /api/airhandler
 
-This call is also supported as "GET /api/zone/1/airhandler" for backward compatibility but this is not per-zone data.
+This call is also supported as "GET /api/zone/1/airhandler" for backward compatibility but this is not per-zone data.  Note there is more airflow information available now thru the MQTT interface which could be added here if needed.
 
 ```json
 {
@@ -387,6 +390,7 @@ mqtt:
 
 ```
 
+MQTT Discovery will be added soon to create the MQTT Climate entities.
 
 ### Topics Subscribed
 
@@ -421,9 +425,14 @@ The protocol has been reverse engineered as Carrier has not published a protocol
 
 Infinitive reads and writes information from the Infinity thermostat.  It also gathers data by passively observing traffic exchanged between the thermostat and other system components.
 
+#### Bus Logging
+
+By adding the --rlog command line option, you can request infinitive to log every request and response seen on the serial bus into a log file, for offline analysis.  We have some primitive tools for analyzing this data which may will add to the repo at some point.  It has been very helpful for finding some more tricks in the protocol.
+
 #### Protocol Notes
 Building on the work documented above, a numer of additional details about the protocol have been discovered.  These notes are
 based on observations of the protocol exchanges on a 2-zone system with 2-stage gas furnace, 2-stage AC compressor, and media filter.
+They are noted here just as a place to track progress.
 
 Register 3b.06: some numbers, then dealer name and phone; numbers probably correspond to settings from the UI/SAM such as filter reminder, UV reminder, Humidifier reminder, Backlight, units F/C, auto mode enabled, sys heat/cool/heatcool, deadband, cycles/hr, programmable fan option
 
@@ -541,7 +550,10 @@ Infinitive reopens the serial interface when it hasn't received any data in 5 se
 There was a long-standing problem wherein occasionally Infinitive's UI would display incorrect data via the web interface for a second.  This was due to a bug in the go code and has been fixed in this fork.  Leaving this note so others familiar with the README will see it.
 
 #### See Also
-[Infinitude](https://github.com/nebulous/infinitude) is another solution for managing Carrier HVAC systems.  It impersonates Carrier web services and provides an alternate interface for controlling Carrier Internet-enabled touchscreen thermostats.  It also supports passive snooping of the RS-485 bus and can decode and display some of the data.
+[Infinitude](https://github.com/nebulous/infinitude) is another solution for managing Carrier HVAC systems.  It impersonates Carrier web services and provides an alternate interface for controlling Carrier Internet-enabled touchscreen thermostats.  It also supports passive snooping of the RS-485 bus and can decode and display some of the data.  Note if infinitude is running on the same machine, it may open the serial port and interfere with infinitive's communications with the bus.
 
 #### Contact
-Andrew Danforth (<adanforth@gmail.com>)
+
+For this fork, please log an issue in Github if you have questions or requests.
+
+Original author: Andrew Danforth (<adanforth@gmail.com>)
