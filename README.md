@@ -13,8 +13,8 @@ in an attempt to simplify Home Assitant integration (extending to zones and to r
 python integration code.  Of course, the MQTT interface could also be useful on its own.
 
 Active development and testing are still under way.  In particular we still need to look into the following:
-  * Still hoping to figure out how Dehumidify action is represented so we can reflect it in th UI/API - may need to resort to heuristics
-  * Fine-tune the detection of actual configured zones - currently using heuristic "currentTemp < 255" but hoping the acutal zone configs are hiding in there somewhere
+  * Still hoping to figure out how Dehumidify action is represented so we can reflect it in the UI/API - may need to resort to heuristics
+  * Fine-tune the detection of actual configured zones - currently using heuristic "currentTemp < 255" but hoping the actual zone configs are hiding in there somewhere
   * Review API enhancements from the Will1604 fork to see if anything useful to pick up
   * MQTT: potentially add a "system ID" and maybe support a read-only option
   * MQTT: add homeassitant discovery topics for the Climate entities (all the primitive sensors and controls already have it)
@@ -45,7 +45,7 @@ In addition to a Linux system, you'll need to source an adapter to communicate o
 Once you have a RS-485 adapter you'll need to connect it to your ABCD bus. The easiest way to do this is by attaching new wires to the A and B terminals of the ABCD bus connector inside your furnace and connecting them to your adapter. The A and B lines are used for RS-485 communication, while C and D are 24V AC power. **Do not connect your RS-485 adapter to the C and D terminals unless you want to see its magic smoke.** 
 
 #### Software
-NOTE: this branch is not yet getting binary releases - you will need to build it yourself for now (see below).  Please open an Issue if you would like to express interest in getting builds released.
+NOTE: this fork is not yet getting binary releases - you will need to build it yourself for now (see below).  Please open an Issue if you would like to express interest in getting builds released.
 
 Start Infinitive, at minimum providing the HTTP port to listen on for the management interface and the path to the correct serial device.
 
@@ -94,7 +94,7 @@ $ MQTTPASS=passwd infinitive ... --mqtt tcp://username@mqtt-broker-host:1883
 password and username are optional, as needed by your MQTT broker.  Password is passed in the environment so as
 not to be visible in "ps" etc.
 
-See below for MQTT schema.
+See below for MQTT schema and more notes about using it.
 
 ## Building from source
 
@@ -299,7 +299,11 @@ is provided to access the broker.  We recommend at least using password authenti
 
 All topics are published with the `retain` flag set so any new client will get all current values; updates are only posted
 at startup or as individual values change.  This does mean that clients could be susceptible to seeing old data if the
-service is no longer running.  Looking for a solution for this.
+service is no longer running.  Looking for a solution to ensure MQTT clients can determine when monitoring has failed or stopped.
+
+Communication with the MQTT broker is reasonably robust in the sense that a down MQTT broker will not
+block startup, and we will reconnect in event of network drops, restarts or similar.  
+MQTT connection state and communication with the MQTT broker are logged in the stderr log.
 
 When enabled by providing the MQTT broker URI and optional password, the following topics are supported:
 
@@ -392,6 +396,9 @@ mqtt:
 
 MQTT Discovery will be added soon to create the MQTT Climate entities.
 
+Upon shutdown, the MQTT discovery topics will be withdrawn, causing the sensors to be removed from HA.  
+They will return after a restart.
+
 ### Topics Subscribed
 
 An MQTT client may publish to these topics in order to change operating
@@ -427,7 +434,7 @@ Infinitive reads and writes information from the Infinity thermostat.  It also g
 
 #### Bus Logging
 
-By adding the --rlog command line option, you can request infinitive to log every request and response seen on the serial bus into a log file, for offline analysis.  We have some primitive tools for analyzing this data which may will add to the repo at some point.  It has been very helpful for finding some more tricks in the protocol.
+By adding the --rlog command line option, you can request infinitive to log every request and response seen on the serial bus into a log file, for offline analysis.  We have some primitive tools for analyzing this data which we may add to the repo at some point.  It has been very helpful for finding some more tricks in the protocol.
 
 #### Protocol Notes
 Building on the work documented above, a numer of additional details about the protocol have been discovered.  These notes are
@@ -444,7 +451,7 @@ Register 3b.07 - 3b.0d: seven 1-day schedules each corresponding to a day of wee
     * uint8 coolSP
     * uint8 0xff (optional fan setting or placeholder for it?)
 
-Register 3c.03: looks like semi-random garbage remnants of other response data, some spliced together inconsistently, as if a buffer overrun
+Register 3c.03: looks like semi-random garbage remnants of other response data, some spliced together inconsistently, as if buffering remnants
 
 Register 3c.0a: list of the 8 zone names (repeats content from 003b03); some extra 0 padding whcih doesn't seem to vary
 
@@ -490,17 +497,17 @@ apparently smoothed and not just rounded)
 ```
 unknown flag (0xa5)
 Repeated per each of 8 zones:
-  FFFF = unknown flags (0x0101, 0x0104) 
+  FFFF = unknown flags (0x0101, 0x0104) - may indicate Tstat, Temp Sensor, Smart Sensor
   TTTT = raw current temp x16
   TT = smoothed current temp for display
 
-Register 3d.03: read from Thermostat: actuals incl outdoor temp and two humidity metrics (unknown what they are)
+Register 3d.03: read from Thermostat: actuals incl outdoor temp and two humidity metrics
 ```
   003d03 a5 01 0337 0100 31 00 31 a5a5a55a5aa5
                OOOO      HH    HR
 ```
 OOOO = outside temp x16
-HH = Humidity (indoor, smoothhed) in %RH
+HH = Humidity (indoor, smoothed) in %RH
 HR = Humidity (indoor, raw) in %RH
 
 Register 04.1f is sent as a WRITE from the thermostat to the smart sensor.  Appears to contain:
@@ -508,9 +515,9 @@ Register 04.1f is sent as a WRITE from the thermostat to the smart sensor.  Appe
   00041f 10 03 00000000 42 52 000004000000000000000000
             TP          HS CS
 ```
-  TP = Program time period (0 = Wake thru 3 = Sleep)
-  HS = Heat setpoint
-  CS = Cool setpoint
+  TP = Program time period for zone (0 = Wake thru 3 = Sleep)
+  HS = Heat setpoint for zone
+  CS = Cool setpoint for zone
 
 Register 04.20 is regularly broadcast as a WRITE to f1f1 by the thermostat.  Fields look to be:
 ```
