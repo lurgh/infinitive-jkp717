@@ -18,7 +18,8 @@ Active development and testing are still under way.  In particular we still need
   * Review API enhancements from the Will1604 fork to see if anything useful to pick up
   * MQTT: potentially add a "system ID" and maybe support a read-only option
   * MQTT: add homeassitant discovery topics for the Climate entities (all the primitive sensors and controls already have it)
-  * MQTT: controls to change overrideDuration
+  * MQTT: controls to change per-zone overrideDuration
+  * MQTT: ensure published data goes stale/unavailable when infinitive stops or fails in various ways
   * Consider moving the per-zone "bonus" sensors into a single JSON attributes object compatible with MQTT Climate integration
 
 This README has been updated with some info about this fork but more needs to be written.
@@ -78,7 +79,7 @@ These additional options may be useful to you:
 ```
 $ infinitive ... --rlog
 ```
-This logs all requests and responses seen on the serial bus in an hourly log file named 'resplog.YYMMDDHH' which will be created in the current directory.  This is intended
+In addition to all normal operations, this option causes infinitive to log all requests and responses seen on the serial bus in an hourly log file named 'resplog.YYMMDDHH' which will be created in the current directory.  This is intended
 to capture serial bus data for offline analysis.
 
   * Enable debug level logging:
@@ -87,7 +88,7 @@ $ infinitive ... --debug
 ```
 This sets the log level to Debug rather than the default Info, causing quite a bit more verbose logging.
 
-  * Enable MQTT data publication:
+  * Enable MQTT data publication, HA MQTT discovery, and MQTT command subscriptions:
 ```
 $ MQTTPASS=passwd infinitive ... --mqtt tcp://username@mqtt-broker-host:1883
 ```
@@ -97,6 +98,8 @@ not to be visible in "ps" etc.
 See below for MQTT schema and more notes about using it.
 
 ## Building from source
+
+(This section needs some updates and refinement)
 
 If you'd like to build Infinitive from source, first confirm you have a working Go environment (I've been using release 1.20.6).  Ensure your GOPATH and GOHOME are set correctly, then:
 
@@ -126,7 +129,7 @@ $ go install github.com/elazarl/go-bindata-assetfs/...
 
 You can use the "make" command to rebuild the assets if you change the sources. 
 
-## JSON API
+## JSON "REST" API
 
 Infinitive exposes a JSON API to retrieve and manipulate thermostat parameters.  There are features implemented in the MQTT API that have not made their way here yet
 but would be easy enough to add if there is interest.  This API has been extended to support multiple-zone systems efficiently but is intended to be backward-compatible with the 1-zone API available in upstream versions of infinitive.
@@ -264,6 +267,8 @@ This call is also supported as "GET /api/zone/1/heatpump" for backward compatibi
 
 #### GET /api/zone/1/vacation
 
+(This API endpoint has not been changed from the original code but needs updates)
+
 ```
 {
    "active":false,
@@ -277,6 +282,8 @@ This call is also supported as "GET /api/zone/1/heatpump" for backward compatibi
 ```
 
 #### PUT /api/zone/1/vacation
+
+(This API endpoint has not been changed from the original code but needs updates)
 
 ```
 {
@@ -293,7 +300,10 @@ All parameters are optional.  A single parameter may be updated by sending a JSO
 
 ## MQTT API
 
-MQTT is a pub/sub bus that is used in many home automation settings.  This API is read/write and it assumes that
+MQTT is a pub/sub bus that is used in many home automation settings.  To use it you will need to have an MQTT broker running
+in your environment.  There are various simple ways to accompish this but they are beyond the scope here.
+
+This MQTT API is read/write and it assumes that
 it is running within a private, trusted environment - that is, there are not specific access controls beyond what
 is provided to access the broker.  We recommend at least using password authentication on your broker.
 
@@ -559,8 +569,10 @@ There was a long-standing problem wherein occasionally Infinitive's UI would dis
 #### See Also
 [Infinitude](https://github.com/nebulous/infinitude) is another solution for managing Carrier HVAC systems.  It impersonates Carrier web services and provides an alternate interface for controlling Carrier Internet-enabled touchscreen thermostats.  It also supports passive snooping of the RS-485 bus and can decode and display some of the data.  Note if infinitude is running on the same machine, it may open the serial port and interfere with infinitive's communications with the bus.
 
-#### Contact
+#### Contact & Acknowledgements
 
-For this fork, please log an issue in Github if you have questions or requests.
+Please log an issue in Github if you have questions or requests related to the work in this fork.
+
+Upstream fork: @jkp717 did some initial work on multi-zone support which inspired me to extend what they started.
 
 Original author: Andrew Danforth (<adanforth@gmail.com>)
